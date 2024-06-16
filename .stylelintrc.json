@@ -1,0 +1,16 @@
+{
+  "plugins": ["stylelint-scss"],
+  "rules": {
+    "indentation": 2,
+    "color-no-invalid-hex": [true],
+    "font-family-no-duplicate-names": true,
+    "color-named": "never",
+    "color-hex-case": ["lower"],
+    "comment-no-empty": true,
+    "string-quotes": "single",
+    "at-rule-no-unknown": [true, { "ignoreAtRules": ["include", "mixin", "each", "extend"] }],
+    "no-descending-specificity": null,
+    "selector-type-no-unknown": null
+  },
+  "ignoreFiles": ["node_modules/*", "src/assets/**", "build/**"]
+}

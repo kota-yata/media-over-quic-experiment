@@ -1,0 +1,19 @@
+html, body {
+  padding: 0;
+  margin: 0;
+  background-color: #f3f3f3;
+}
+
+video {
+  --width: 480px;
+  /* --max-width: 40vw; */
+  background: #333;
+  width: var(--width);
+  /* max-width: var(--max-width); */
+  height: calc(var(--width) * 3 / 4);
+  /* max-height: calc(var(--max-width) * 3 / 4); */
+}
+
+button {
+  margin: 5px;
+}
