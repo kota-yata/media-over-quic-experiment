@@ -45,20 +45,21 @@
     }
   }
 
-  const moqStreamOnClick = () => {
+  const moqPlayStreamOnClick = async () => {
     subscriber = new Subscriber('https://44.237.11.243:4433/moq');
-    subscriber.init();
+    await subscriber.init();
     subscriber.setCanvasElement(moqEl);
+  }
+  const moqStartStreamOnClick = async () => {
+    const publisher = new Publisher('https://44.237.11.243:4433/moq');
+    await publisher.init();
   }
 
   onMount(async () => {
-    // ws = new WS();
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
       throw new Error('Error accessing media devices:');
     });
     setLiveVideo(stream, liveEl);
-    // await publisher.init();
-    // await publisher.encode(stream);
   });
 </script>
 
@@ -83,7 +84,7 @@
     <div class="right">
       <h3>Media over QUIC</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
-      <button on:click={moqStreamOnClick}>Watch MOQ streaming</button>
+      <button on:click={moqPlayStreamOnClick}>Watch MOQ streaming</button>
     </div>
   </div>
 </div>

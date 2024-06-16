@@ -1,44 +1,19 @@
+import { MOQ_DRAFT01_VERSION, MOQ_LOCATION_MODE_ABSOLUTE, MOQ_LOCATION_MODE_NONE, MOQ_LOCATION_MODE_RELATIVE_NEXT, MOQ_MAX_PARAMS, MOQ_MESSAGE_ANNOUNCE, MOQ_MESSAGE_ANNOUNCE_OK, MOQ_MESSAGE_CLIENT_SETUP, MOQ_MESSAGE_OBJECT, MOQ_MESSAGE_OBJECT_WITH_LENGTH, MOQ_MESSAGE_SERVER_SETUP, MOQ_MESSAGE_SUBSCRIBE, MOQ_MESSAGE_SUBSCRIBE_OK, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, MOQ_PARAMETER_ROLE_PUBLISHER, MOQ_PARAMETER_ROLE_SUBSCRIBER } from './constants';
 import type { LOC } from './loc';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/bytes';
-
-export const MOQ_DRAFT01_VERSION = 0xff000001;
-export const MOQ_SUPPORTED_VERSIONS = [MOQ_DRAFT01_VERSION];
-
-export const MOQ_PARAMETER_ROLE = 0x0;
-export const MOQ_PARAMETER_AUTHORIZATION_INFO = 0x2;
-
-export const MOQ_MAX_PARAMS = 256;
-export const MOQ_MAX_ARRAY_LENGTH = 1024;
-
-export const MOQ_PARAMETER_ROLE_INVALID = 0x0;
-export const MOQ_PARAMETER_ROLE_PUBLISHER = 0x1;
-export const MOQ_PARAMETER_ROLE_SUBSCRIBER = 0x2;
-export const MOQ_PARAMETER_ROLE_BOTH = 0x3;
-
-// Location modes
-export const MOQ_LOCATION_MODE_NONE = 0x0;
-export const MOQ_LOCATION_MODE_ABSOLUTE = 0x1;
-export const MOQ_LOCATION_MODE_RELATIVE_PREVIOUS = 0x2;
-export const MOQ_LOCATION_MODE_RELATIVE_NEXT = 0x3;
-
-// MOQ messages
-const MOQ_MESSAGE_OBJECT = 0x0;
-const MOQ_MESSAGE_OBJECT_WITH_LENGTH = 0x2;
-const MOQ_MESSAGE_CLIENT_SETUP = 0x40;
-const MOQ_MESSAGE_SERVER_SETUP = 0x41;
-
-const MOQ_MESSAGE_SUBSCRIBE = 0x3;
-const MOQ_MESSAGE_SUBSCRIBE_OK = 0x4;
-
-const MOQ_MESSAGE_ANNOUNCE = 0x6;
-const MOQ_MESSAGE_ANNOUNCE_OK = 0x7;
-// const MOQ_MESSAGE_ANNOUNCE_ERROR = 0x8
-// const MOQ_MESSAGE_UNANNOUNCE = 0x9
 
 interface SenderState {
   [key: number]: {
     currentGroupSeq: number,
     currentObjectSeq: number,
+  }
+}
+interface Track { 
+  [key: string]: {
+    id: number,
+    type: string,
+    priority: number,
+    numSubscribers: number,
   }
 }
 
@@ -47,7 +22,7 @@ export class MOQT {
   private controlStream: WebTransportBidirectionalStream;
   private controlWriter: WritableStream;
   private controlReader: ReadableStream;
-  private moqTracks = {};
+  private moqTracks: Track = {};
   private senderState: SenderState = {};
   constructor(url: string) {
     this.wt = new WebTransport(url);
@@ -70,7 +45,7 @@ export class MOQT {
     //   const announceResponse = await this.readAnnounce();
     //   console.log(`ANNOUNCE Response: ${announceResponse.namespace}`);
     // }
-    await this.announce('default', 'authInfo'); // temporary
+    await this.announce('default', 'secret'); // temporary
     const announceResponse = await this.readAnnounce();
   }
   private async send(writerStream: WritableStream, dataBytes: Uint8Array) {
@@ -93,11 +68,16 @@ export class MOQT {
     await this.subscribe('vc', 'kota-audio', 'secret');
     const subscribeResponseAudio = await this.readSubscribeResponse();
     console.log(`SUBSCRIBE Response: ${subscribeResponseAudio.namespace} ${subscribeResponseAudio.trackName} ${subscribeResponseAudio.trackId} ${subscribeResponseAudio.expires}`);
-    this.moqTracks[subscribeResponseAudio.trackName] = {
-      id: subscribeResponseAudio.trackId,
-      type: 'audio',
-      priority: 10000,
-    };
+    if (!this.getTrack(subscribeResponseAudio.trackName)) {
+      this.moqTracks[subscribeResponseAudio.trackName] = {
+        id: subscribeResponseAudio.trackId,
+        type: 'audio',
+        priority: 10000,
+        numSubscribers: 1,
+      };
+    } else {
+      this.moqTracks[subscribeResponseAudio.trackName].numSubscribers++;
+    }
   }
   // SETUP
   private generateSetupMessage(moqIntRole: number) {

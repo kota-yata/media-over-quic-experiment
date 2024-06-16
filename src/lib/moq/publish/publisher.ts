@@ -74,11 +74,7 @@ export class Publisher {
       const subscribe = await this.moqt.readSubscribe();
       console.log(`Received subscribe request for track ${subscribe.trackName}`);
       const track = this.moqt.getTrack(subscribe.trackName);
-      if ('numSubscribers' in track) {
-        track.numSubscribers++;
-      } else {
-        track.numSubscribers = 1;
-      }
+      track.numSubscribers++;
       console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
       await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
     }
