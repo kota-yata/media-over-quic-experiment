@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
-  import { MOQT } from '$lib/moq/moqt';
+  import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
   import { broadcast } from '$lib/ivs';
@@ -23,7 +22,11 @@
   const ivsBroadcastOnclick = () => {
     broadcast(stream, streamKey);
   }
-  const moqBroadcastOnclick = () => {}
+  const moqBroadcastOnclick = async () => {
+    const publisher = new Publisher('https://44.237.11.243:4433/moq');
+    await publisher.init();
+    await publisher.encode(stream);
+  }
 
   const hlsUrl = 'https://516172ba1ccf.us-west-2.playback.live-video.net/api/video/v1/us-west-2.058264281702.channel.46F81L1y5iqM.m3u8';
 
@@ -50,10 +53,6 @@
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
   }
-  const moqStartStreamOnClick = async () => {
-    const publisher = new Publisher('https://44.237.11.243:4433/moq');
-    await publisher.init();
-  }
 
   onMount(async () => {
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
@@ -74,7 +73,7 @@
   <video autoplay muted playsinline bind:this={liveEl} />
   <input type="text" placeholder="Enter your stream key" bind:value={streamKey}/>
   <button on:click={ivsBroadcastOnclick}>Start IVS broadcast</button>
-  <button on:click={moqBroadcastOnclick}>Start MOQ broadcast</button>
+  <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
   <div class="container-videos">
     <div class="left">
       <h3>RTMP + HLS</h3>

@@ -264,8 +264,17 @@ export class MOQT {
     }
     return ret;
   }
+  // Track management
   public getTrack(trackName: string) {
     return this.moqTracks[trackName];
+  }
+  public setTrack(trackName: string, props: { id: number, type: string, priority: number, numSubscribers: number }) {
+    this.moqTracks[trackName] = {
+      id: props.id,
+      type: props.type,
+      priority: props.priority,
+      numSubscribers: props.numSubscribers,
+    };
   }
   public searchTrackType(trackId: number) {
     for (const [trackName, trackData] of Object.entries(this.moqTracks)) {

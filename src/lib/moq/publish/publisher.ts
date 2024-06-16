@@ -18,6 +18,19 @@ export class Publisher {
     await this.moqt.startPublisher();
     this.state = 'running';
     this.startLoopSubscriptionsLoop();
+    // generate new tracks
+    this.moqt.setTrack('kota-video', {
+      id: 1,
+      type: 'video',
+      priority: 1,
+      numSubscribers: 0,
+    });
+    this.moqt.setTrack('kota-audio', {
+      id: 2,
+      type: 'audio',
+      priority: 1000,
+      numSubscribers: 0,
+    });
   }
   public async encode(mediaStream: MediaStream) {
     const videoTrack = mediaStream.getVideoTracks()[0];
@@ -42,19 +55,22 @@ export class Publisher {
     audioEncoder.configure(this.audioEncoderConfig);
 
     while (true) {
-      const { done, value: frame } = await videoReader.read();
-      if (done) break;
-      videoEncoder.encode(frame);
-      frame.close();
+      await Promise.all([
+      (async () => {
+        const { done: vDone, value: vFrame } = await videoReader.read();
+        if (vDone) return;
+        videoEncoder.encode(vFrame); // TODO: Keyframe option can be set here
+        vFrame.close();
+      })(),
+      (async () => {
+        const { done: aDone, value: aFrame } = await audioReader.read();
+        if (aDone) return;
+        audioEncoder.encode(aFrame);
+        aFrame.close();
+      })()
+      ]);
     }
-    while (true) {
-      const { done, value: frame } = await audioReader.read();
-      if (done) break;
-
-      audioEncoder.encode(frame);
-      frame.close();
     }
-  }
   private async handleEncodedVideoChunk(chunk: EncodedVideoChunk, metadata) {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);

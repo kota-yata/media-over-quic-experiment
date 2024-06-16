@@ -1,4 +1,4 @@
-import IVSBroadcastClient, { Stage, LocalStageStream, SubscribeType, StageEvents, ConnectionState, StreamType, StageConnectionState } from 'amazon-ivs-web-broadcast';
+import IVSBroadcastClient from 'amazon-ivs-web-broadcast';
 
 export const broadcast = async (mediaStream: MediaStream, streamKey: string) => {
   const client = IVSBroadcastClient.create({
