@@ -18,12 +18,14 @@ interface Track {
 }
 
 export class MOQT {
+  private MAX_INFLIGHT_REQUESTS = 50;
   private wt: WebTransport;
   private controlStream: WebTransportBidirectionalStream;
   private controlWriter: WritableStream;
   private controlReader: ReadableStream;
   private moqTracks: Track = {};
   private senderState: SenderState = {};
+  private inflightRequests: string[] = [];
   constructor(url: string) {
     this.wt = new WebTransport(url);
   }
@@ -51,7 +53,6 @@ export class MOQT {
   private async send(writerStream: WritableStream, dataBytes: Uint8Array) {
     const writer = writerStream.getWriter();
     await writer.write(dataBytes);
-    await writer.ready;
     writer.releaseLock();
   }
   // Start as a subscriber
@@ -197,11 +198,13 @@ export class MOQT {
     const groupSeqBytes = numberToVarInt(groupSeq);
     const objectSeqBytes = numberToVarInt(objectSeq);
     const sendOrderBytes = numberToVarInt(sendOrder);
-    return concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, data]);
+    return {
+      getId: () => `${trackId}-${groupSeq}-${objectSeq}-${sendOrder}`,
+      toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, data])
+    }
   }
-  public async sendObject(locPacket: LOC) {
-    const uniStream = await this.wt.createUnidirectionalStream();
-    const targetTrack = this.moqTracks[locPacket.chunkType];
+  public async sendObject(locPacket: LOC, trackName: string) {
+    const targetTrack = this.getTrack(trackName);
     const trackId = targetTrack.id;
     if (!this.senderState[trackId]) {
       this.senderState[trackId] = {
@@ -212,9 +215,16 @@ export class MOQT {
       this.senderState[trackId].currentObjectSeq++;
     }
     const sendOrder = (this.senderState[trackId].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
+    const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
     const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackId].currentGroupSeq, this.senderState[trackId].currentObjectSeq, sendOrder, locPacket.toBytes());
-    await this.send(uniStream, moqtObject);
-    await uniStream.close();
+    const success = this.addInflightRequest(moqtObject.getId());
+    console.log(success.success)
+    if (success.success) {
+      await this.send(uniStream, moqtObject.toBytes());
+      uniStream.close().finally(() => {
+        this.removeInflightRequest(moqtObject.getId());
+      });
+    }
   }
   public async readObject(readableStream: ReadableStream) {
     const type = await varIntToNumber(readableStream);
@@ -283,5 +293,15 @@ export class MOQT {
       }
     }
     return null;
+  }
+  private addInflightRequest(requestId: string): { success: boolean } {
+    if (this.inflightRequests.length > this.MAX_INFLIGHT_REQUESTS) {
+      return { success: false };
+    }
+    this.inflightRequests.push(requestId);
+    return { success: true };
+  }
+  private removeInflightRequest(requestId: string) {
+    this.inflightRequests = this.inflightRequests.filter((id) => id !== requestId);
   }
 }

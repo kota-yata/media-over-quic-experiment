@@ -5,6 +5,8 @@ import { MOQT } from '../moqt';
 export class Publisher {
   private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
+  private videoTrackName: string = 'kota-video';
+  private audioTrackName: string = 'kota-audio';
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
   audioChunkCount: number;
@@ -15,17 +17,18 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init() {
+    await this.moqt.initControlStream();
     await this.moqt.startPublisher();
     this.state = 'running';
     this.startLoopSubscriptionsLoop();
     // generate new tracks
-    this.moqt.setTrack('kota-video', {
+    this.moqt.setTrack(this.videoTrackName, {
       id: 1,
       type: 'video',
       priority: 1,
       numSubscribers: 0,
     });
-    this.moqt.setTrack('kota-audio', {
+    this.moqt.setTrack(this.audioTrackName, {
       id: 2,
       type: 'audio',
       priority: 1000,
@@ -62,12 +65,12 @@ export class Publisher {
         videoEncoder.encode(vFrame); // TODO: Keyframe option can be set here
         vFrame.close();
       })(),
-      (async () => {
-        const { done: aDone, value: aFrame } = await audioReader.read();
-        if (aDone) return;
-        audioEncoder.encode(aFrame);
-        aFrame.close();
-      })()
+      // (async () => {
+      //   const { done: aDone, value: aFrame } = await audioReader.read();
+      //   if (aDone) return;
+      //   audioEncoder.encode(aFrame);
+      //   aFrame.close();
+      // })()
       ]);
     }
     }
@@ -76,14 +79,18 @@ export class Publisher {
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
     locPacket.setData('video', chunk.type, this.videoChunkCount++, chunk.timestamp, chunkData, metadata);
-    await this.moqt.sendObject(locPacket);
+    try {
+      await this.moqt.sendObject(locPacket, this.videoTrackName);
+    } catch(e) {
+      console.error('something went wrong', e);
+    }
   }
   private async handleEncodedAudioChunk(chunk: EncodedAudioChunk, metadata) {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
     locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, metadata);
-    await this.moqt.sendObject(locPacket);
+    await this.moqt.sendObject(locPacket, this.audioTrackName);
   }
   public async startLoopSubscriptionsLoop() {
     while (this.state === 'running') {
