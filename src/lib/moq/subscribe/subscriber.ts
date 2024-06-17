@@ -82,6 +82,7 @@ export class Subscriber {
     }
   }
   private handleVideoFrame(frame: VideoFrame) {
+    console.log(frame);
     if (!this.ctx) return;
     this.ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
     frame.close();

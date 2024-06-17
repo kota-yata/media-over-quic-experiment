@@ -33,13 +33,14 @@ export class LOC {
     this.metadata = metadata;
   }
   public toBytes() {
-    const chunkTypeBytes = numberToVarInt(this.chunkType === 'delta' ? 0 : 1);
     const mediaTypeBytes = numberToVarInt(this.mediaType === 'data' ? 0 : this.chunkType === 'audio' ? 1 : 2);
+    const chunkTypeBytes = numberToVarInt(this.chunkType === 'delta' ? 0 : 1);
     const seqIdBytes = numberToVarInt(this.seqId);
     const timestampBytes = numberToVarInt(this.timestamp);
     const dataBytes = new Uint8Array(this.data);
     const metadataBytes = new Uint8Array(this.metadata);
-    return concatBuffer([chunkTypeBytes, mediaTypeBytes, seqIdBytes, timestampBytes, dataBytes, metadataBytes]);
+    // put timestamp and sequence number first in a packet because only they are mandatory properties defined in LOC v3 spec
+    return concatBuffer([timestampBytes, seqIdBytes, mediaTypeBytes, chunkTypeBytes, metadataBytes, dataBytes]);
   }
   public toObject(): LOCObject {
     return {
@@ -54,6 +55,8 @@ export class LOC {
     };
   }
   public async fromBytes(readerStream) {
+    this.timestamp = await varIntToNumber(readerStream);
+    this.seqId = await varIntToNumber(readerStream);
     const mediaTypeInt = await varIntToNumber(readerStream);
     if (mediaTypeInt === 0) {
       this.mediaType = 'data';
@@ -64,7 +67,6 @@ export class LOC {
     } else {
       throw new Error(`Mediatype ${mediaTypeInt} not supported`);
     }
-
     const chunkTypeInt = await varIntToNumber(readerStream);
     if (chunkTypeInt === 0) {
       this.chunkType = 'delta';
@@ -73,11 +75,6 @@ export class LOC {
     } else {
       throw new Error(`chunkType ${chunkTypeInt} not supported`);
     }
-
-    this.seqId = await varIntToNumber(readerStream);
-    this.timestamp = await varIntToNumber(readerStream);
-    this.duration = await varIntToNumber(readerStream);
-    this.firstFrameClkms = await varIntToNumber(readerStream);
     const metadataSize = await varIntToNumber(readerStream);
     if (metadataSize > 0) {
       this.metadata = await buffRead(readerStream, metadataSize);
@@ -85,5 +82,7 @@ export class LOC {
       this.metadata = null;
     }
     this.data = await readUntilEof(readerStream, this.READ_BLOCK_SIZE);
+    // this.duration = await varIntToNumber(readerStream);
+    // this.firstFrameClkms = await varIntToNumber(readerStream);
   }
 }

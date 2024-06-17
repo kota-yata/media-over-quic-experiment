@@ -10,6 +10,7 @@ interface SenderState {
 }
 interface Track { 
   [key: string]: {
+    namespace: string,
     id: number,
     type: string,
     priority: number,
@@ -41,14 +42,15 @@ export class MOQT {
   // Start as a publisher
   public async startPublisher() {
     await this.setup(MOQ_PARAMETER_ROLE_PUBLISHER);
-    const setupResponse = await this.readSetup();
-    // for (const [trackType, trackData] of Object.entries(this.moqTracks)) {
-    //   await this.announce(trackType, 'authInfo');
-    //   const announceResponse = await this.readAnnounce();
-    //   console.log(`ANNOUNCE Response: ${announceResponse.namespace}`);
-    // }
-    await this.announce('default', 'secret'); // temporary
-    const announceResponse = await this.readAnnounce();
+    await this.readSetup();
+    const announcedNs = [];
+    for (const [trackType, trackData] of Object.entries(this.moqTracks)) {
+      if (announcedNs.includes(trackData.namespace)) continue;
+      announcedNs.push(trackData.namespace);
+      await this.announce(trackData.namespace, 'secret');
+      const announceResponse = await this.readAnnounce();
+      console.log(`ANNOUNCE Response: ${announceResponse.namespace}`);
+    }
   }
   private async send(writerStream: WritableStream, dataBytes: Uint8Array) {
     const writer = writerStream.getWriter();
@@ -59,18 +61,29 @@ export class MOQT {
   public async startSubscriber() {
     await this.wt.ready;
     await this.setup(MOQ_PARAMETER_ROLE_SUBSCRIBER);
-    const setupResponse = await this.readSetup();
+    await this.readSetup();
     // video
-    // await this.subscribe('vc', 'kota-video', 'secret');
-    // const subscribeResponse = await this.readSubscribeResponse();
-    // console.log(`SUBSCRIBE Response: ${subscribeResponse.namespace} ${subscribeResponse.trackName} ${subscribeResponse.trackId} ${subscribeResponse.expires}`);
-    // this.moqTracks[subscribeResponse.trackName].id = subscribeResponse.trackId;
+    await this.subscribe('kota', 'kota-video', 'secret');
+    const subscribeResponse = await this.readSubscribeResponse();
+    console.log(`SUBSCRIBE Response: ${subscribeResponse.namespace} ${subscribeResponse.trackName} ${subscribeResponse.trackId} ${subscribeResponse.expires}`);
+    if (!this.getTrack(subscribeResponse.trackName)) {
+      this.moqTracks[subscribeResponse.trackName] = {
+        namespace: subscribeResponse.namespace,
+        id: subscribeResponse.trackId,
+        type: 'video',
+        priority: 1,
+        numSubscribers: 1,
+      };
+    } else {
+      this.moqTracks[subscribeResponse.trackName].numSubscribers++;
+    }
     // audio
-    await this.subscribe('vc', 'kota-audio', 'secret');
+    await this.subscribe('kota', 'kota-audio', 'secret');
     const subscribeResponseAudio = await this.readSubscribeResponse();
     console.log(`SUBSCRIBE Response: ${subscribeResponseAudio.namespace} ${subscribeResponseAudio.trackName} ${subscribeResponseAudio.trackId} ${subscribeResponseAudio.expires}`);
     if (!this.getTrack(subscribeResponseAudio.trackName)) {
       this.moqTracks[subscribeResponseAudio.trackName] = {
+        namespace: subscribeResponseAudio.namespace,
         id: subscribeResponseAudio.trackId,
         type: 'audio',
         priority: 10000,
@@ -218,7 +231,6 @@ export class MOQT {
     const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
     const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackId].currentGroupSeq, this.senderState[trackId].currentObjectSeq, sendOrder, locPacket.toBytes());
     const success = this.addInflightRequest(moqtObject.getId());
-    console.log(success.success)
     if (success.success) {
       await this.send(uniStream, moqtObject.toBytes());
       uniStream.close().finally(() => {
@@ -278,8 +290,9 @@ export class MOQT {
   public getTrack(trackName: string) {
     return this.moqTracks[trackName];
   }
-  public setTrack(trackName: string, props: { id: number, type: string, priority: number, numSubscribers: number }) {
+  public setTrack(trackName: string, props: { namespace: string, id: number, type: string, priority: number, numSubscribers: number }) {
     this.moqTracks[trackName] = {
+      namespace: props.namespace,
       id: props.id,
       type: props.type,
       priority: props.priority,

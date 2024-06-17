@@ -8,7 +8,10 @@
   let liveEl: HTMLVideoElement;
   let IVSEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
+  let moqIsPlaying: boolean = false;
+  let moqIsBroadcasting: boolean = false;
   let subscriber: Subscriber;
+  let publisher: Publisher;
   let stream: MediaStream;
 
   let streamKey: string = '';
@@ -23,9 +26,16 @@
     broadcast(stream, streamKey);
   }
   const moqBroadcastOnclick = async () => {
-    const publisher = new Publisher('https://44.237.11.243:4433/moq');
+    if (moqIsBroadcasting) return;
+    publisher = new Publisher('https://44.237.11.243:4433/moq');
     await publisher.init();
     await publisher.encode(stream);
+    moqIsBroadcasting = true;
+  }
+  const moqStopBroadcastOnClick = () => {
+    if (!moqIsBroadcasting) return;
+    publisher.stop();
+    moqIsBroadcasting = false;
   }
 
   const hlsUrl = 'https://516172ba1ccf.us-west-2.playback.live-video.net/api/video/v1/us-west-2.058264281702.channel.46F81L1y5iqM.m3u8';
@@ -47,11 +57,12 @@
       });
     }
   }
-
   const moqPlayStreamOnClick = async () => {
+    if (moqIsPlaying) return;
     subscriber = new Subscriber('https://44.237.11.243:4433/moq');
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
+    moqIsPlaying = true;
   }
 
   onMount(async () => {
@@ -74,6 +85,7 @@
   <input type="text" placeholder="Enter your stream key" bind:value={streamKey}/>
   <button on:click={ivsBroadcastOnclick}>Start IVS broadcast</button>
   <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
+  <button on:click={moqStopBroadcastOnClick}>Stop MOQ broadcast</button>
   <div class="container-videos">
     <div class="left">
       <h3>RTMP + HLS</h3>
@@ -83,7 +95,7 @@
     <div class="right">
       <h3>Media over QUIC</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
-      <button on:click={moqPlayStreamOnClick}>Watch MOQ streaming</button>
+      <button on:click={moqPlayStreamOnClick}>Start playing</button>
     </div>
   </div>
 </div>

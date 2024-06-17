@@ -17,23 +17,25 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init() {
-    await this.moqt.initControlStream();
-    await this.moqt.startPublisher();
-    this.state = 'running';
-    this.startLoopSubscriptionsLoop();
     // generate new tracks
     this.moqt.setTrack(this.videoTrackName, {
-      id: 1,
+      namespace: 'kota',
+      id: 0,
       type: 'video',
       priority: 1,
       numSubscribers: 0,
     });
     this.moqt.setTrack(this.audioTrackName, {
-      id: 2,
+      namespace: 'kota',
+      id: 1,
       type: 'audio',
       priority: 1000,
       numSubscribers: 0,
     });
+    await this.moqt.initControlStream();
+    await this.moqt.startPublisher();
+    this.state = 'running';
+    this.startLoopSubscriptionsLoop();
   }
   public async encode(mediaStream: MediaStream) {
     const videoTrack = mediaStream.getVideoTracks()[0];
@@ -57,17 +59,22 @@ export class Publisher {
     });
     audioEncoder.configure(this.audioEncoderConfig);
 
-    while (true) {
+    while (this.state === 'running') {
       await Promise.all([
       (async () => {
         const { done: vDone, value: vFrame } = await videoReader.read();
         if (vDone) return;
-        videoEncoder.encode(vFrame); // TODO: Keyframe option can be set here
+        if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
+          videoEncoder.encode(vFrame); // TODO: Keyframe option can be set here
+        }
         vFrame.close();
       })(),
       // (async () => {
       //   const { done: aDone, value: aFrame } = await audioReader.read();
       //   if (aDone) return;
+      //   if (this.moqt.getTrack(this.audioTrackName).numSubscribers > 0) {
+      //     audioEncoder.encode(aFrame); // TODO: Keyframe option can be set here
+      //   }
       //   audioEncoder.encode(aFrame);
       //   aFrame.close();
       // })()
@@ -101,5 +108,8 @@ export class Publisher {
       console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
       await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
     }
+  }
+  public stop() {
+    this.state = 'stopped';
   }
 }
