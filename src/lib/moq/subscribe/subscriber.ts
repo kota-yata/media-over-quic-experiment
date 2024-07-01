@@ -5,7 +5,6 @@ import { deSerializeMetadata } from '../utils/bytes';
 
 export class Subscriber {
   private moqt: MOQT;
-  private loc: LOC;
   private vDecoder: VideoDecoder;
   private aDecoder: AudioDecoder;
   private canvasElement: HTMLCanvasElement;
@@ -15,7 +14,6 @@ export class Subscriber {
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
   constructor(url: string) {
     this.moqt = new MOQT(url);
-    this.loc = new LOC();
     this.vDecoder = new VideoDecoder({
       output: (frame) => this.handleVideoFrame(frame),
       error: (e) => console.error(e.message)
@@ -48,16 +46,22 @@ export class Subscriber {
   public async processObject(readerStream) {
     const object = await this.moqt.readObject(readerStream);
     const trackType = this.moqt.searchTrackType(object.trackId);
-    await this.loc.fromBytes(readerStream);
-    const locObject = this.loc.toObject();
-    if (this.loc.chunkType === 'delta' && this.waitForKeyFrame) return;
+    const loc = new LOC();
+    try {
+      await loc.fromBytes(readerStream);
+    } catch (e) {
+      console.error(e);
+    }
+    const locObject = loc.toObject();
+    if (loc.chunkType === 'delta' && this.waitForKeyFrame) return;
     this.setWaitForKeyFrame(false);
     if (trackType === 'video') {
-      if (locObject.metadata === null) return;
-      const config: VideoDecoderConfig = deSerializeMetadata(locObject.metadata);
-      config.optimizeForLatency = true;
-      config.hardwareAcceleration = 'prefer-software';
-      this.vDecoder.configure(config);
+      if (locObject.metadata) {
+        const config: VideoDecoderConfig = locObject.metadata;
+        config.optimizeForLatency = true;
+        config.hardwareAcceleration = 'prefer-software';
+        this.vDecoder.configure(config);
+      }
       const chunk = new EncodedVideoChunk({
         timestamp: locObject.timestamp,
         type: locObject.chunkType,
@@ -67,11 +71,12 @@ export class Subscriber {
       this.vDecoder.decode(chunk);
     }
     if (trackType === 'audio') {
-      if (locObject.metadata === null) return;
-      const config: AudioDecoderConfig = deSerializeMetadata(locObject.metadata);
-      config.optimizeForLatency = true;
-      config.hardwareAcceleration = 'prefer-software';
-      this.aDecoder.configure(config);
+      if (locObject.metadata) {
+        const config: AudioDecoderConfig = locObject.metadata;
+        config.optimizeForLatency = true;
+        config.hardwareAcceleration = 'prefer-software';
+        this.aDecoder.configure(config);
+      }
       const chunk = new EncodedAudioChunk({
         timestamp: locObject.timestamp,
         type: locObject.chunkType,

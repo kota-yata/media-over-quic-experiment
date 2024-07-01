@@ -205,7 +205,7 @@ export class MOQT {
     return ret;
   }
   // OBJECT
-  private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: ArrayBuffer) {
+  private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE_OBJECT);
     const trackIdBytes = numberToVarInt(trackId);
     const groupSeqBytes = numberToVarInt(groupSeq);
@@ -216,7 +216,7 @@ export class MOQT {
       toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, data])
     }
   }
-  public async sendObject(locPacket: LOC, trackName: string) {
+  public async sendObject(locPacket: LOC, trackName: string): Promise<number> {
     const targetTrack = this.getTrack(trackName);
     const trackId = targetTrack.id;
     if (!this.senderState[trackId]) {
@@ -226,6 +226,10 @@ export class MOQT {
       };
     } else {
       this.senderState[trackId].currentObjectSeq++;
+    } 
+    if (locPacket.chunkType === 'key') {
+      this.senderState[trackId].currentGroupSeq++;
+      this.senderState[trackId].currentObjectSeq = 0;
     }
     const sendOrder = (this.senderState[trackId].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
     const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
@@ -247,10 +251,8 @@ export class MOQT {
     const groupSeq = await varIntToNumber(readableStream);
     const objSeq = await varIntToNumber(readableStream);
     const sendOrder = await varIntToNumber(readableStream);
-    const ret = { trackId, groupSeq, objSeq, sendOrder, payloadLength: 0 };
-    if (type === MOQ_MESSAGE_OBJECT_WITH_LENGTH) {
-      ret.payloadLength = await varIntToNumber(readableStream);
-    }
+    const ret = { trackId, groupSeq, objSeq, sendOrder };
+    // ret.payloadLength = await varIntToNumber(readableStream);
     return ret;
   }
   // MISC

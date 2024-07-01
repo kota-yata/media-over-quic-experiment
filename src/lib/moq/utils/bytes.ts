@@ -162,6 +162,38 @@ export async function readUntilEof(readableStream, blockSize) {
   return payload;
 }
 
+export function serializeMetadata (metadata): Uint8Array {
+  let ret: Uint8Array;
+  if (isMetadataValid(metadata)) {
+    const newData = {}
+    // Copy all enumerable own properties
+    newData.decoderConfig = Object.assign({}, metadata.decoderConfig)
+    // Description is buffer
+    if ('description' in metadata.decoderConfig) {
+      newData.decoderConfig.descriptionInBase64 = arrayBufferToBase64(metadata.decoderConfig.description)
+      delete newData.description
+    }
+    // Encode
+    const encoder = new TextEncoder()
+    ret = encoder.encode(JSON.stringify(newData))
+  }
+  return ret
+}
+
+export function isMetadataValid (metadata) {
+  return metadata !== undefined && 'decoderConfig' in metadata
+}
+
+function arrayBufferToBase64 (buffer) {
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
 export function deSerializeMetadata (metadata) {
   const decoder = new TextDecoder()
   const str = decoder.decode(metadata)

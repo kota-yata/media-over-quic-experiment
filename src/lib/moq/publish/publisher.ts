@@ -1,12 +1,14 @@
 import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
+import { serializeMetadata } from '../utils/bytes';
 
 export class Publisher {
   private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
-  private videoTrackName: string = 'kota-video';
-  private audioTrackName: string = 'kota-audio';
+  private videoTrackName = 'kota-video';
+  private audioTrackName = 'kota-audio';
+  private keyframeDuration = 60;
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
   audioChunkCount: number;
@@ -65,7 +67,7 @@ export class Publisher {
         const { done: vDone, value: vFrame } = await videoReader.read();
         if (vDone) return;
         if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
-          videoEncoder.encode(vFrame); // TODO: Keyframe option can be set here
+          videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 }); // TODO: Keyframe option can be set here
         }
         vFrame.close();
       })(),
@@ -75,7 +77,6 @@ export class Publisher {
       //   if (this.moqt.getTrack(this.audioTrackName).numSubscribers > 0) {
       //     audioEncoder.encode(aFrame); // TODO: Keyframe option can be set here
       //   }
-      //   audioEncoder.encode(aFrame);
       //   aFrame.close();
       // })()
       ]);
@@ -85,7 +86,8 @@ export class Publisher {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
-    locPacket.setData('video', chunk.type, this.videoChunkCount++, chunk.timestamp, chunkData, metadata);
+    locPacket.setData('video', chunk.type, this.videoChunkCount, chunk.timestamp, chunkData, serializeMetadata(metadata));
+    this.videoChunkCount++;
     try {
       await this.moqt.sendObject(locPacket, this.videoTrackName);
     } catch(e) {
@@ -96,7 +98,7 @@ export class Publisher {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
-    locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, metadata);
+    locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, serializeMetadata(metadata));
     await this.moqt.sendObject(locPacket, this.audioTrackName);
   }
   public async startLoopSubscriptionsLoop() {

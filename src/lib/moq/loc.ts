@@ -1,4 +1,4 @@
-import { buffRead, concatBuffer, numberToVarInt, readUntilEof, varIntToNumber } from './utils/bytes';
+import { buffRead, concatBuffer, deSerializeMetadata, numberToVarInt, readUntilEof, varIntToNumber } from './utils/bytes';
 
 type LOCMediaTypeUnion = 'data' | 'video' | 'audio';
 type LOCChunkTypeUnion = EncodedVideoChunkType | EncodedAudioChunkType;
@@ -19,12 +19,12 @@ export class LOC {
   chunkType: LOCChunkTypeUnion;
   seqId: number;
   timestamp: number;
-  data: ArrayBuffer;
-  metadata: any;
+  data: Uint8Array;
+  metadata: Uint8Array;
   duration: number;
   firstFrameClkms: number;
   private READ_BLOCK_SIZE = 1024 * 1024;
-  public setData(mediaType: LOCMediaTypeUnion, chunkType: LOCChunkTypeUnion, seqId: number, timestamp: number, data: ArrayBuffer, metadata:any) {
+  public setData(mediaType: LOCMediaTypeUnion, chunkType: LOCChunkTypeUnion, seqId: number, timestamp: number, data: Uint8Array, metadata: Uint8Array) {
     this.chunkType = chunkType;
     this.mediaType = mediaType;
     this.seqId = seqId;
@@ -33,14 +33,25 @@ export class LOC {
     this.metadata = metadata;
   }
   public toBytes() {
-    const mediaTypeBytes = numberToVarInt(this.mediaType === 'data' ? 0 : this.chunkType === 'audio' ? 1 : 2);
+    let mediaTypeBytes;
+    if (this.mediaType === 'data') {
+      mediaTypeBytes = numberToVarInt(0);
+    } else if (this.mediaType === 'audio') {
+      mediaTypeBytes = numberToVarInt(1);
+    } else if (this.mediaType === 'video') {
+      mediaTypeBytes = numberToVarInt(2);
+    }
     const chunkTypeBytes = numberToVarInt(this.chunkType === 'delta' ? 0 : 1);
-    const seqIdBytes = numberToVarInt(this.seqId);
     const timestampBytes = numberToVarInt(this.timestamp);
-    const dataBytes = new Uint8Array(this.data);
-    const metadataBytes = new Uint8Array(this.metadata);
-    // put timestamp and sequence number first in a packet because only they are mandatory properties defined in LOC v3 spec
-    return concatBuffer([timestampBytes, seqIdBytes, mediaTypeBytes, chunkTypeBytes, metadataBytes, dataBytes]);
+    const seqIdBytes = numberToVarInt(this.seqId);
+    const metadataSizeBytes = numberToVarInt(this.metadata ? this.metadata.byteLength : 0);
+    const metadataBytes = this.metadata
+    const dataBytes = this.data
+    if (this.metadata) {
+      return concatBuffer([mediaTypeBytes, chunkTypeBytes, timestampBytes, seqIdBytes, metadataSizeBytes, metadataBytes, dataBytes]);
+    } else {
+      return concatBuffer([mediaTypeBytes, chunkTypeBytes, timestampBytes, seqIdBytes, metadataSizeBytes, dataBytes]);
+    }
   }
   public toObject(): LOCObject {
     return {
@@ -55,8 +66,6 @@ export class LOC {
     };
   }
   public async fromBytes(readerStream) {
-    this.timestamp = await varIntToNumber(readerStream);
-    this.seqId = await varIntToNumber(readerStream);
     const mediaTypeInt = await varIntToNumber(readerStream);
     if (mediaTypeInt === 0) {
       this.mediaType = 'data';
@@ -75,14 +84,15 @@ export class LOC {
     } else {
       throw new Error(`chunkType ${chunkTypeInt} not supported`);
     }
+    this.timestamp = await varIntToNumber(readerStream);
+    this.seqId = await varIntToNumber(readerStream);
     const metadataSize = await varIntToNumber(readerStream);
     if (metadataSize > 0) {
-      this.metadata = await buffRead(readerStream, metadataSize);
+      const metadataBytes = await buffRead(readerStream, metadataSize);
+      this.metadata = deSerializeMetadata(metadataBytes);
     } else {
       this.metadata = null;
     }
     this.data = await readUntilEof(readerStream, this.READ_BLOCK_SIZE);
-    // this.duration = await varIntToNumber(readerStream);
-    // this.firstFrameClkms = await varIntToNumber(readerStream);
   }
 }
