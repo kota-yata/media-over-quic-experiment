@@ -216,7 +216,7 @@ export class MOQT {
       toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, data])
     }
   }
-  public async sendObject(locPacket: LOC, trackName: string): Promise<number> {
+  public async sendObject(locPacket: LOC, trackName: string) {
     const targetTrack = this.getTrack(trackName);
     const trackId = targetTrack.id;
     if (!this.senderState[trackId]) {
