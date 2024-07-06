@@ -74,7 +74,7 @@
 </script>
 
 <svelte:head>
-  <title>IVS vs Media over QUIC</title>
+  <title>WebRTC vs Media over QUIC</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y-media-has-caption -->

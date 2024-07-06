@@ -68,6 +68,7 @@ export class Subscriber {
         data: locObject.data,
         duration: locObject.duration,
       });
+      // TODO: put the chunk in the jitter buffer
       this.vDecoder.decode(chunk);
     }
     if (trackType === 'audio') {
@@ -87,7 +88,6 @@ export class Subscriber {
     }
   }
   private handleVideoFrame(frame: VideoFrame) {
-    console.log(frame);
     if (!this.ctx) return;
     this.ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
     frame.close();
