@@ -2,6 +2,7 @@ import { AUDIO_DECODER_DEFAULT_CONFIG, VIDEO_DECODER_DEFAULT_CONFIG } from '../c
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { deSerializeMetadata } from '../utils/bytes';
+import { moqVideoDecodeLatencyStore, moqVideoFrameOnDecode } from '../utils/store';
 
 export class Subscriber {
   private moqt: MOQT;
@@ -44,6 +45,7 @@ export class Subscriber {
     }
   }
   public async processObject(readerStream) {
+    moqVideoFrameOnDecode.set(performance.now());
     const object = await this.moqt.readObject(readerStream);
     const trackType = this.moqt.searchTrackType(object.trackId);
     const loc = new LOC();
@@ -89,6 +91,8 @@ export class Subscriber {
   }
   private handleVideoFrame(frame: VideoFrame) {
     if (!this.ctx) return;
+    const latency = moqVideoFrameOnDecode.calcLatency(performance.now());
+    moqVideoDecodeLatencyStore.set(latency);
     this.ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
     frame.close();
   }

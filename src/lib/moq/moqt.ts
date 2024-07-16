@@ -1,6 +1,7 @@
 import { MOQ_DRAFT01_VERSION, MOQ_LOCATION_MODE_ABSOLUTE, MOQ_LOCATION_MODE_NONE, MOQ_LOCATION_MODE_RELATIVE_NEXT, MOQ_MAX_PARAMS, MOQ_MESSAGE_ANNOUNCE, MOQ_MESSAGE_ANNOUNCE_OK, MOQ_MESSAGE_CLIENT_SETUP, MOQ_MESSAGE_OBJECT, MOQ_MESSAGE_OBJECT_WITH_LENGTH, MOQ_MESSAGE_SERVER_SETUP, MOQ_MESSAGE_SUBSCRIBE, MOQ_MESSAGE_SUBSCRIBE_OK, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, MOQ_PARAMETER_ROLE_PUBLISHER, MOQ_PARAMETER_ROLE_SUBSCRIBER } from './constants';
 import type { LOC } from './loc';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/bytes';
+import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
 
 interface SenderState {
   [key: number]: {
@@ -211,9 +212,10 @@ export class MOQT {
     const groupSeqBytes = numberToVarInt(groupSeq);
     const objectSeqBytes = numberToVarInt(objectSeq);
     const sendOrderBytes = numberToVarInt(sendOrder);
+    const performanceBytes = numberToVarInt(performance.now());
     return {
       getId: () => `${trackId}-${groupSeq}-${objectSeq}-${sendOrder}`,
-      toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, data])
+      toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, performanceBytes, data])
     }
   }
   public async sendObject(locPacket: LOC, trackName: string) {
@@ -236,6 +238,8 @@ export class MOQT {
     const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackId].currentGroupSeq, this.senderState[trackId].currentObjectSeq, sendOrder, locPacket.toBytes());
     const success = this.addInflightRequest(moqtObject.getId());
     if (success.success) {
+      const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
+      moqVideoEncodeLatencyStore.set(latency);
       await this.send(uniStream, moqtObject.toBytes());
       uniStream.close().finally(() => {
         this.removeInflightRequest(moqtObject.getId());
@@ -251,7 +255,9 @@ export class MOQT {
     const groupSeq = await varIntToNumber(readableStream);
     const objSeq = await varIntToNumber(readableStream);
     const sendOrder = await varIntToNumber(readableStream);
+    const sourcePerformance = await varIntToNumber(readableStream);
     const ret = { trackId, groupSeq, objSeq, sendOrder };
+    moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
     // ret.payloadLength = await varIntToNumber(readableStream);
     return ret;
   }

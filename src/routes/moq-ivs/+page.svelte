@@ -4,6 +4,7 @@
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
   import { broadcast } from '$lib/ivs';
   import HLS from 'hls.js';
+  import { moqVideoDecodeLatencyStore, moqVideoEncodeLatencyStore, moqVideoTransmissionLatencyStore } from '$lib/moq/utils/store';
 
   let liveEl: HTMLVideoElement;
   let IVSEl: HTMLVideoElement;
@@ -96,6 +97,11 @@
       <h3>Media over QUIC</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
       <button on:click={moqPlayStreamOnClick}>Start playing</button>
+      <div class="performance">
+        <p>Encoding&Packaging Latency: {Math.round($moqVideoEncodeLatencyStore)}ms</p>
+        <p>Transmission Latency: {Math.round($moqVideoTransmissionLatencyStore)}ms</p>
+        <p>Decoding&Depackaging Latency: {Math.round($moqVideoDecodeLatencyStore)}ms</p>
+      </div>
     </div>
   </div>
 </div>
@@ -116,8 +122,13 @@
         max-width: 480px;
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: top;
         align-items: center;
+      }
+      .right {
+        .performance {
+          text-align: right;
+        }
       }
     }
     canvas {

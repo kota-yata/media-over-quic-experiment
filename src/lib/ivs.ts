@@ -7,7 +7,7 @@ export const broadcast = async (mediaStream: MediaStream, streamKey: string) => 
       maxFramerate: 30,
       maxBitrate: 3500
     },
-    ingestEndpoint: 'rtmps://516172ba1ccf.global-contribute.live-video.net:443/app/'
+    ingestEndpoint: 'rtmps://516172ba1ccf.global-contribute.live-video.net:443/app/?keyframeInterval=1'
   });
   client.addVideoInputDevice(mediaStream, 'camera', { index: 0 });
   client.addAudioInputDevice(mediaStream, 'microphone');

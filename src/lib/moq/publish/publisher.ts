@@ -2,6 +2,7 @@ import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_DEFAULT_CONFIG } from '../c
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata } from '../utils/bytes';
+import { moqVideoFrameOnEncode } from '../utils/store';
 
 export class Publisher {
   private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG
@@ -46,8 +47,8 @@ export class Publisher {
     const videoProcessor = new MediaStreamTrackProcessor({ track: videoTrack });
     const audioProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
 
-    const videoReader = videoProcessor.readable.getReader();
-    const audioReader = audioProcessor.readable.getReader();
+    const videoReader: ReadableStreamDefaultReader = videoProcessor.readable.getReader();
+    const audioReader: ReadableStreamDefaultReader = audioProcessor.readable.getReader();
 
     const videoEncoder = new VideoEncoder({
       output: (chunk, metadata) => this.handleEncodedVideoChunk(chunk, metadata),
@@ -67,7 +68,8 @@ export class Publisher {
         const { done: vDone, value: vFrame } = await videoReader.read();
         if (vDone) return;
         if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
-          videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 }); // TODO: Keyframe option can be set here
+          moqVideoFrameOnEncode.set(performance.now());
+          videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
         }
         vFrame.close();
       })(),
@@ -75,7 +77,7 @@ export class Publisher {
       //   const { done: aDone, value: aFrame } = await audioReader.read();
       //   if (aDone) return;
       //   if (this.moqt.getTrack(this.audioTrackName).numSubscribers > 0) {
-      //     audioEncoder.encode(aFrame); // TODO: Keyframe option can be set here
+      //     audioEncoder.encode(aFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 }); // TODO: Keyframe option can be set here
       //   }
       //   aFrame.close();
       // })()

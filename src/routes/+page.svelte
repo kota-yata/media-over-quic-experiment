@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
+  import { moqVideoEncodeLatencyStore } from '$lib/moq/utils/store';
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
@@ -45,12 +46,12 @@
 </script>
 
 <svelte:head>
-  <title>WebRTC vs Media over QUIC</title>
+  <title>Media over QUIC Experiment</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <div class="container">
-  <h1>Streaming Quality Comparison</h1>
+  <h1>MoQ Performance Examination</h1>
   <div class="container-videos">
     <div class="left">
       <h3>Live Video</h3>
