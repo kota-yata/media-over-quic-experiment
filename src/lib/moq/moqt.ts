@@ -1,4 +1,4 @@
-import { MOQ_DRAFT01_VERSION, MOQ_LOCATION_MODE_ABSOLUTE, MOQ_LOCATION_MODE_NONE, MOQ_LOCATION_MODE_RELATIVE_NEXT, MOQ_MAX_PARAMS, MOQ_MESSAGE_ANNOUNCE, MOQ_MESSAGE_ANNOUNCE_OK, MOQ_MESSAGE_CLIENT_SETUP, MOQ_MESSAGE_OBJECT, MOQ_MESSAGE_OBJECT_WITH_LENGTH, MOQ_MESSAGE_SERVER_SETUP, MOQ_MESSAGE_SUBSCRIBE, MOQ_MESSAGE_SUBSCRIBE_OK, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, MOQ_PARAMETER_ROLE_PUBLISHER, MOQ_PARAMETER_ROLE_SUBSCRIBER } from './constants';
+import { MOQ_DRAFT01_VERSION, MOQ_DRAFT05_VERSION, MOQ_LOCATION_MODE_ABSOLUTE, MOQ_LOCATION_MODE_NONE, MOQ_LOCATION_MODE_RELATIVE_NEXT, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import type { LOC } from './loc';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
@@ -42,7 +42,7 @@ export class MOQT {
   }
   // Start as a publisher
   public async startPublisher() {
-    await this.setup(MOQ_PARAMETER_ROLE_PUBLISHER);
+    await this.setup(MOQ_PARAMETER_ROLE.PUBLISHER);
     await this.readSetup();
     const announcedNs = [];
     for (const [trackType, trackData] of Object.entries(this.moqTracks)) {
@@ -61,7 +61,7 @@ export class MOQT {
   // Start as a subscriber
   public async startSubscriber() {
     await this.wt.ready;
-    await this.setup(MOQ_PARAMETER_ROLE_SUBSCRIBER);
+    await this.setup(MOQ_PARAMETER_ROLE.SUBSCRIBER);
     await this.readSetup();
     // video
     await this.subscribe('kota', 'kota-video', 'secret');
@@ -96,14 +96,14 @@ export class MOQT {
   }
   // SETUP
   private generateSetupMessage(moqIntRole: number) {
-    const messageType = numberToVarInt(MOQ_MESSAGE_CLIENT_SETUP);
-    const versionLength = numberToVarInt(1);
-    const version = numberToVarInt(MOQ_DRAFT01_VERSION);
+    const messageType = numberToVarInt(MOQ_MESSAGE.CLIENT_SETUP);
+    // const versionLength = numberToVarInt(1);
+    const version = numberToVarInt(MOQ_DRAFT05_VERSION);
     const numberOfParams = numberToVarInt(1);
-    const roleParamId = numberToVarInt(MOQ_PARAMETER_ROLE);
+    const roleParamId = numberToVarInt(MOQ_PARAMETER_ROLE.KEY);
     const roleParamData = numberToVarInt(moqIntRole);
     const roleParamRoleLength = numberToVarInt(roleParamData.byteLength);
-    return concatBuffer([messageType, versionLength, version, numberOfParams, roleParamId, roleParamRoleLength, roleParamData]);
+    return concatBuffer([messageType, version, numberOfParams, roleParamId, roleParamRoleLength, roleParamData]);
   }
   public async setup(role: number) {
     const setup = this.generateSetupMessage(role);
@@ -112,7 +112,7 @@ export class MOQT {
   public async readSetup() {
     const ret = { version: 0, parameters: null };
     const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE_SERVER_SETUP) {
+    if (type !== MOQ_MESSAGE.SERVER_SETUP) {
       throw new Error(`SETUP answer with type ${type} is not supported`);
     }
     ret.version = await varIntToNumber(this.controlReader);
@@ -122,7 +122,7 @@ export class MOQT {
   }
   // ANNOUNCE
   private generateAnnounceMessage(ns: string, authInfo: string) {
-    const messageType = numberToVarInt(MOQ_MESSAGE_ANNOUNCE);
+    const messageType = numberToVarInt(MOQ_MESSAGE.ANNOUNCE);
     const namespace = this.stringToBytes(ns);
     const numberOfParams = numberToVarInt(1);
     const authInfoIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
@@ -135,27 +135,32 @@ export class MOQT {
   }
   public async readAnnounce() {
     const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE_ANNOUNCE_OK) {
-      throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE_ANNOUNCE_OK}, got ${type}`);
+    if (type !== MOQ_MESSAGE.ANNOUNCE_OK) {
+      throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${type}`);
     }
     const namespace = await this.readString();
     return { namespace };
   }
+  // TODO: announce ok, announce error, announce cancel and unannounce
+  // TODO: track status request, track status
   // SUBSCRIBE
   private generateSubscribeMessage(ns: string, trackName: string, authInfo: string) {
-    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE_SUBSCRIBE);
+    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
+    const subscribeIdBytes = this.stringToBytes(`sub-${trackName}`); // temporary constant
+    const trackAliasBytes = this.stringToBytes(`alias-${trackName}`); // temp
     const namespaceBytes = this.stringToBytes(ns);
     const trackNameBytes = this.stringToBytes(trackName);
-    const startGroupBytesMode = numberToVarInt(MOQ_LOCATION_MODE_RELATIVE_NEXT);
-    const startGroupBytesValue = numberToVarInt(0);
-    const startObjectBytesMode = numberToVarInt(MOQ_LOCATION_MODE_ABSOLUTE);
-    const startObjectBytesValue = numberToVarInt(0);
-    const endGroupBytesMode = numberToVarInt(MOQ_LOCATION_MODE_NONE);
-    const endObjectBytesMode = numberToVarInt(MOQ_LOCATION_MODE_NONE);
+    const subscriberPriorityBytes = numberToVarInt(1); // temporary constant
+    const groupOrderBytes = numberToVarInt(SUBSCRIBE_GROUP_ORDER.ASCENDING); // temporary constant
+    const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // temporary constant
+    // const startGroupBytesValue = numberToVarInt(0);
+    // const startObjectBytesValue = numberToVarInt(0);
+    // const endGroupBytesValue
+    // const endObjectBytesValue
     const numberOfParamsBytes = numberToVarInt(1);
     const authInfoParamIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
     const authInfoBytes = this.stringToBytes(authInfo);
-    return concatBuffer([messageTypeBytes, namespaceBytes, trackNameBytes, startGroupBytesMode, startGroupBytesValue, startObjectBytesMode, startObjectBytesValue, endGroupBytesMode, endObjectBytesMode, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
+    return concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, namespaceBytes, trackNameBytes, subscriberPriorityBytes, groupOrderBytes, filterTypeBytes, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
   }
   public async subscribe(ns: string, trackName: string, authInfo: string) {
     const subscribe = this.generateSubscribeMessage(ns, trackName, authInfo);
@@ -164,8 +169,8 @@ export class MOQT {
   public async readSubscribe() {
     const ret = { namespace: '', trackName: '', startGroup: -1, startObject: -1, endGroup: -1, endObject: -1, parameters: null };
     const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE_SUBSCRIBE) {
-      throw new Error(`SUBSCRIBE type must be ${MOQ_MESSAGE_SUBSCRIBE}, got ${type}`);
+    if (type !== MOQ_MESSAGE.SUBSCRIBE) {
+      throw new Error(`SUBSCRIBE type must be ${MOQ_MESSAGE.SUBSCRIBE}, got ${type}`);
     }
     ret.namespace = await this.readString();
     ret.trackName = await this.readString();
@@ -182,12 +187,13 @@ export class MOQT {
     return ret;
   }
   private generateSubscribeResponseMessage(ns: string, trackName: string, trackId: number, expiresMs) {
-    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE_SUBSCRIBE_OK);
-    const namespaceBytes = this.stringToBytes(ns);
-    const trackNameBytes = this.stringToBytes(trackName);
-    const trackIdBytes = numberToVarInt(trackId);
+    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE_OK);
+    const subscriptionIdBytes = numberToVarInt(trackId);
     const expiresBytes = numberToVarInt(expiresMs);
-    return concatBuffer([messageTypeBytes, namespaceBytes, trackNameBytes, trackIdBytes, expiresBytes]);
+    const contentExistsBytes = numberToVarInt(1); // temporary constant
+    const largestGroupIdBytes = numberToVarInt(0); // temporary constant
+    const largestObjectIdBytes = numberToVarInt(0); // temporary constant
+    return concatBuffer([messageTypeBytes, subscriptionIdBytes, expiresBytes, contentExistsBytes, largestGroupIdBytes, largestObjectIdBytes]);
   }
   public async sendSubscribeResponse(ns: string, trackName: string, trackId: number, expiresMs: number) {
     const subscribeResponse = this.generateSubscribeResponseMessage(ns, trackName, trackId, expiresMs);
@@ -196,8 +202,8 @@ export class MOQT {
   public async readSubscribeResponse() {
     const ret = { namespace: '', trackName: '', trackId: -1, expires: -1 };
     const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE_SUBSCRIBE_OK) {
-      throw new Error(`SUBSCRIBE answer type must be ${MOQ_MESSAGE_SUBSCRIBE_OK}, got ${type}`);
+    if (type !== MOQ_MESSAGE.SUBSCRIBE_OK) {
+      throw new Error(`SUBSCRIBE answer type must be ${MOQ_MESSAGE.SUBSCRIBE_OK}, got ${type}`);
     }
     ret.namespace = await this.readString();
     ret.trackName = await this.readString();
@@ -205,17 +211,20 @@ export class MOQT {
     ret.expires = await varIntToNumber(this.controlReader);
     return ret;
   }
+  // TODO: subscribe update, subscribe error, subscribe done and unsubscribe
   // OBJECT
   private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
-    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE_OBJECT);
-    const trackIdBytes = numberToVarInt(trackId);
-    const groupSeqBytes = numberToVarInt(groupSeq);
-    const objectSeqBytes = numberToVarInt(objectSeq);
+    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.OBJECT_STREAM);
+    const subscribeIdBytes = numberToVarInt(trackId);
+    const trackAliasBytes = this.stringToBytes(`hoge-${trackId}`) // temporary constant
+    const groupIdBytes = numberToVarInt(groupSeq);
+    const objectIdBytes = numberToVarInt(objectSeq);
     const sendOrderBytes = numberToVarInt(sendOrder);
+    const objectStatusBytes = numberToVarInt(OBJECT_STATUS.NORMAL);
     const performanceBytes = numberToVarInt(performance.now());
     return {
       getId: () => `${trackId}-${groupSeq}-${objectSeq}-${sendOrder}`,
-      toBytes: () => concatBuffer([messageTypeBytes, trackIdBytes, groupSeqBytes, objectSeqBytes, sendOrderBytes, performanceBytes, data])
+      toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, data])
     }
   }
   public async sendObject(locPacket: LOC, trackName: string) {
@@ -248,8 +257,8 @@ export class MOQT {
   }
   public async readObject(readableStream: ReadableStream) {
     const type = await varIntToNumber(readableStream);
-    if (type !== MOQ_MESSAGE_OBJECT && type !== MOQ_MESSAGE_OBJECT_WITH_LENGTH) {
-      throw new Error(`OBJECT answer type must be ${MOQ_MESSAGE_OBJECT} or ${MOQ_MESSAGE_OBJECT_WITH_LENGTH}, got ${type}`);
+    if (type !== MOQ_MESSAGE.OBJECT_STREAM && type !== MOQ_MESSAGE.OBJECT_DATAGRAM) {
+      throw new Error(`OBJECT answer type must be ${MOQ_MESSAGE.OBJECT_STREAM} or ${MOQ_MESSAGE.OBJECT_DATAGRAM}, got ${type}`);
     }
     const trackId = await varIntToNumber(readableStream);
     const groupSeq = await varIntToNumber(readableStream);
@@ -261,6 +270,7 @@ export class MOQT {
     // ret.payloadLength = await varIntToNumber(readableStream);
     return ret;
   }
+  // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status
   // MISC
   private stringToBytes(str: string) {
     const dataStrBytes = new TextEncoder().encode(str);
