@@ -19,7 +19,8 @@
   };
   const moqBroadcastOnclick = async () => {
     if (moqIsBroadcasting) return;
-    publisher = new Publisher('https://44.237.11.243:4433/moq');
+    // publisher = new Publisher('https://44.237.11.243:4433/moq');
+    publisher = new Publisher('https://localhost:4433/moq');
     await publisher.init();
     await publisher.encode(stream);
     moqIsBroadcasting = true;
@@ -31,7 +32,7 @@
   }
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
-    subscriber = new Subscriber('https://44.237.11.243:4433/moq');
+    subscriber = new Subscriber('https://localhost:4433/moq');
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
     moqIsPlaying = true;
@@ -51,16 +52,16 @@
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <div class="container">
-  <h1>MoQ Performance Examination</h1>
+  <h1>Video Call with MoQT</h1>
   <div class="container-videos">
     <div class="left">
-      <h3>Live Video</h3>
+      <h3>Publisher (Webcam capture)</h3>
       <video autoplay muted playsinline bind:this={liveEl} />
       <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
       <button on:click={moqStopBroadcastOnClick}>Stop MOQ broadcast</button>
     </div>
     <div class="right">
-      <h3>Media over QUIC</h3>
+      <h3>Subscriber</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
       <button on:click={moqPlayStreamOnClick}>Start playing</button>
     </div>

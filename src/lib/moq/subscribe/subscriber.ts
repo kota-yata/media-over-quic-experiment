@@ -47,7 +47,7 @@ export class Subscriber {
   public async processObject(readerStream) {
     moqVideoFrameOnDecode.set(performance.now());
     const object = await this.moqt.readObject(readerStream);
-    const trackType = this.moqt.searchTrackType(object.trackId);
+    const trackType = this.moqt.searchTrackType(object.trackAlias);
     const loc = new LOC();
     try {
       await loc.fromBytes(readerStream);

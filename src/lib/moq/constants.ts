@@ -36,6 +36,7 @@ export const AUDIO_DECODER_DEFAULT_CONFIG: AudioDecoderConfig = {
 
 // MOQ Parameters
 export const MOQ_DRAFT01_VERSION = 0xff000001;
+export const MOQ_DRAFT04_VERSION = 0xff000004;
 export const MOQ_DRAFT05_VERSION = 0xff000005;
 export const MOQ_SUPPORTED_VERSIONS = [MOQ_DRAFT05_VERSION];
 
