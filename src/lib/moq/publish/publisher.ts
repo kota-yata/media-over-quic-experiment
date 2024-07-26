@@ -1,7 +1,7 @@
 import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
-import { serializeMetadata } from '../utils/bytes';
+import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
 export class Publisher {
@@ -39,6 +39,11 @@ export class Publisher {
     await this.moqt.startPublisher();
     this.state = 'running';
     this.startLoopSubscriptionsLoop();
+  }
+  public async stop() {
+    await this.moqt.unannounce();
+    this.state = 'stopped';
+    console.log('stopped');
   }
   public async encode(mediaStream: MediaStream) {
     const videoTrack = mediaStream.getVideoTracks()[0];
@@ -112,8 +117,5 @@ export class Publisher {
       console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
       await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
     }
-  }
-  public stop() {
-    this.state = 'stopped';
   }
 }

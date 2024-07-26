@@ -1,4 +1,4 @@
-import { MOQ_DRAFT01_VERSION, MOQ_DRAFT04_VERSION, MOQ_DRAFT05_VERSION, MOQ_LOCATION_MODE_ABSOLUTE, MOQ_LOCATION_MODE_NONE, MOQ_LOCATION_MODE_RELATIVE_NEXT, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
+import { MOQ_DRAFT04_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import type { LOC } from './loc';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
@@ -95,6 +95,9 @@ export class MOQT {
     //   this.moqTracks[subscribeResponseAudio.trackName].numSubscribers++;
     // }
   }
+  public async stopSubscriber() {
+    await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
+  }
   // SETUP
   private generateSetupMessage(moqIntRole: number) {
     const messageType = numberToVarInt(MOQ_MESSAGE.CLIENT_SETUP);
@@ -141,6 +144,15 @@ export class MOQT {
     }
     const namespace = await this.readString();
     return { namespace };
+  }
+  public generateUnannounceMessage(ns: string) {
+    const messageType = numberToVarInt(MOQ_MESSAGE.UNANNOUNCE);
+    const namespace = this.stringToBytes(ns);
+    return concatBuffer([messageType, namespace]);
+  }
+  public async unannounce() {
+    const unannounce = this.generateUnannounceMessage('kota');
+    await this.send(this.controlWriter, unannounce);
   }
   // TODO: announce ok, announce error, announce cancel and unannounce
   // TODO: track status request, track status
@@ -214,7 +226,21 @@ export class MOQT {
     ret.contentExists = await varIntToNumber(this.controlReader);
     return ret;
   }
-  // TODO: subscribe update, subscribe error, subscribe done and unsubscribe
+  private generateSubscribeUpdateMessage() {}
+  private readSubscribeDone() {}
+  private readSubscribeError() {}
+  private generateUnsubscribeMessage(subscribeId: number) {
+    const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.UNSUBSCRIBE);
+    const subscribeIdBytes = numberToVarInt(subscribeId);
+    return concatBuffer([messageTypeBytes, subscribeIdBytes]);
+  }
+  private async unsubscribe(subscribeId: number) {
+    const unsubscribeMessage = this.generateUnsubscribeMessage(subscribeId);
+    await this.send(this.controlWriter, unsubscribeMessage);
+  }
+  private readUnsubscribe() {
+    // TODO
+  }
   // OBJECT
   private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.OBJECT_STREAM);

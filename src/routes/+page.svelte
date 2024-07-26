@@ -20,22 +20,28 @@
   const moqBroadcastOnclick = async () => {
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
-    publisher = new Publisher('https://localhost:4433/moq');
+    publisher = new Publisher('https://norsk-moq-linode-chicago.englishm.net:4443');
     await publisher.init();
     await publisher.encode(stream);
     moqIsBroadcasting = true;
   }
-  const moqStopBroadcastOnClick = () => {
-    if (!moqIsBroadcasting) return;
-    publisher.stop();
+  const moqStopBroadcastOnClick = async () => {
+    // console.log(moqIsBroadcasting)
+    // if (!moqIsBroadcasting) return;
+    await publisher.stop();
     moqIsBroadcasting = false;
   }
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
-    subscriber = new Subscriber('https://localhost:4433/moq');
+    subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
     moqIsPlaying = true;
+  }
+  const moqStopStreamOnClick = async () => {
+    if (!moqIsPlaying) return;
+    await subscriber.stop();
+    moqIsPlaying = false;
   }
 
   onMount(async () => {
@@ -58,12 +64,13 @@
       <h3>Publisher (Webcam capture)</h3>
       <video autoplay muted playsinline bind:this={liveEl} />
       <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
-      <button on:click={moqStopBroadcastOnClick}>Stop MOQ broadcast</button>
+      <button on:click={async () => await moqStopBroadcastOnClick()}>Stop MOQ broadcast</button>
     </div>
     <div class="right">
       <h3>Subscriber</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
       <button on:click={moqPlayStreamOnClick}>Start playing</button>
+      <button on:click={moqStopStreamOnClick}>Stop playing</button>
     </div>
   </div>
 </div>

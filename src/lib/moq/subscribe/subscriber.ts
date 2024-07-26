@@ -29,6 +29,10 @@ export class Subscriber {
     await this.moqt.startSubscriber();
     this.startLoopObject();
   }
+  public async stop() {
+    // unsubscribe but keep the control stream
+    await this.moqt.stopSubscriber();
+  }
   public setCanvasElement(canvasElement: HTMLCanvasElement) {
     this.canvasElement = canvasElement;
     this.ctx = this.canvasElement.getContext('2d');
