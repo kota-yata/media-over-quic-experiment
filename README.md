@@ -1,4 +1,4 @@
-Media over QUIC encoder and decoder implementation. also contains comparison between Amazon IVS and MoQ
+Media over QUIC Trasnport (+ LOC) encoder and decoder implementation. also contains comparison between Amazon IVS and MoQT
 
-compatible with [meta's moq relay server implementation](https://github.com/facebookexperimental/moq-go-server)
+compatible with v4 and have been tested with [Moxygen](https://github.com/facebookexperimental/moxygen)
 
