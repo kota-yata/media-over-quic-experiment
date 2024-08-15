@@ -98,6 +98,10 @@ export class MOQT {
   public async stopSubscriber() {
     await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
   }
+  // read message type
+  public async readControlMessageType(): Promise<number> {
+    return await varIntToNumber(this.controlReader);
+  }
   // SETUP
   private generateSetupMessage(moqIntRole: number) {
     const messageType = numberToVarInt(MOQ_MESSAGE.CLIENT_SETUP);
@@ -181,10 +185,6 @@ export class MOQT {
   }
   public async readSubscribe() {
     const ret = { subscribeId: -1, trackAlias: -1, namespace: '', trackName: '', filterType: -1, startGroup: -1, startObject: -1, endGroup: -1, endObject: -1, parameters: null };
-    const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE.SUBSCRIBE) {
-      throw new Error(`SUBSCRIBE type must be ${MOQ_MESSAGE.SUBSCRIBE}, got ${type}`);
-    }
     ret.subscribeId = await varIntToNumber(this.controlReader);
     ret.trackAlias = await varIntToNumber(this.controlReader);
     ret.namespace = await this.readString();
@@ -238,8 +238,9 @@ export class MOQT {
     const unsubscribeMessage = this.generateUnsubscribeMessage(subscribeId);
     await this.send(this.controlWriter, unsubscribeMessage);
   }
-  private readUnsubscribe() {
-    // TODO
+  public async readUnsubscribe() {
+    const subscribeId = await varIntToNumber(this.controlReader);
+    return { subscribeId };
   }
   // OBJECT
   private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {

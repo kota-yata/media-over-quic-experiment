@@ -1,4 +1,4 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata, varIntToNumber } from '../utils/bytes';
@@ -110,12 +110,20 @@ export class Publisher {
   }
   public async startLoopSubscriptionsLoop() {
     while (this.state === 'running') {
-      const subscribe = await this.moqt.readSubscribe();
-      console.log(`Received subscribe request for track ${subscribe.trackName}`);
-      const track = this.moqt.getTrack(subscribe.trackName);
-      track.numSubscribers++;
-      console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
-      await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
+      const messageType = await this.moqt.readControlMessageType();
+      if (messageType === MOQ_MESSAGE.SUBSCRIBE) {
+        const subscribe = await this.moqt.readSubscribe();
+        console.log(`Received subscribe request for track ${subscribe.trackName}`);
+        const track = this.moqt.getTrack(subscribe.trackName);
+        track.numSubscribers++;
+        console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
+        await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
+      } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
+        const unsubscribe = await this.moqt.readUnsubscribe();
+        console.log('Received unsubscribe from id', unsubscribe.subscribeId);
+      } else {
+        throw new Error('Unexpected message type received');
+      }
     }
   }
 }
