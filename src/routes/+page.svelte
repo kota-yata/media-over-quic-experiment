@@ -3,6 +3,7 @@
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
   import { moqVideoEncodeLatencyStore } from '$lib/moq/utils/store';
+  import { text } from 'svelte/internal';
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
@@ -12,6 +13,8 @@
   let publisher: Publisher;
   let stream: MediaStream;
 
+  let moqtServerUrl = 'https://localhost:4433/moq';
+
   const setLiveVideo = async (stream: MediaStream, videoEl: HTMLVideoElement): Promise<MediaStream> => {
     if (!stream) throw new Error('Failed retrieving media devices');
     videoEl.srcObject = stream;
@@ -20,7 +23,8 @@
   const moqBroadcastOnclick = async () => {
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
-    publisher = new Publisher('https://norsk-moq-linode-chicago.englishm.net:4443');
+    // publisher = new Publisher('https://norsk-moq-linode-chicago.englishm.net:4443');
+    publisher = new Publisher(moqtServerUrl);
     await publisher.init();
     await publisher.encode(stream);
     moqIsBroadcasting = true;
@@ -33,7 +37,8 @@
   }
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
-    subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
+    // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
+    subscriber = new Subscriber(moqtServerUrl);
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
     moqIsPlaying = true;
@@ -63,6 +68,10 @@
     <div class="left">
       <h3>Publisher (Webcam capture)</h3>
       <video autoplay muted playsinline bind:this={liveEl} />
+      <div class="left-server">
+        <label for="ServerUrl">Relay Server</label>
+        <input type="text" name="ServerUrl" bind:value={moqtServerUrl} placeholder="https://localhost:4433/moq" />
+      </div>
       <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
       <button on:click={async () => await moqStopBroadcastOnClick()}>Stop MOQ broadcast</button>
     </div>
@@ -93,6 +102,18 @@
         flex-direction: column;
         justify-content: start;
         align-items: center;
+      }
+      .left {
+        &-server {
+          width: 100%;
+          margin: 5px;
+          display: flex;
+          justify-content: center;
+          input {
+            margin-left: 5px;
+            width: 50%;
+          }
+        }
       }
     }
     canvas {
