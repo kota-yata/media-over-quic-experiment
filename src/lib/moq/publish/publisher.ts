@@ -9,6 +9,8 @@ export class Publisher {
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
   private videoTrackName = 'kota-video';
   private audioTrackName = 'kota-audio';
+  private videoReader: ReadableStreamDefaultReader;
+  private audioReader: ReadableStreamDefaultReader;
   private keyframeDuration = 60;
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
@@ -45,16 +47,20 @@ export class Publisher {
     this.state = 'stopped';
     console.log('stopped');
   }
-  public async encode(mediaStream: MediaStream) {
+  public async replaceTrack(mediaStream: MediaStream) {
+    this.resetStream(mediaStream);
+  }
+  public resetStream(mediaStream: MediaStream) {
+    // stream removal and addition are done in page.svelte
     const videoTrack = mediaStream.getVideoTracks()[0];
     const audioTrack = mediaStream.getAudioTracks()[0];
-
     const videoProcessor = new MediaStreamTrackProcessor({ track: videoTrack });
     const audioProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
-
-    const videoReader: ReadableStreamDefaultReader = videoProcessor.readable.getReader();
-    const audioReader: ReadableStreamDefaultReader = audioProcessor.readable.getReader();
-
+    this.videoReader = videoProcessor.readable.getReader();
+    this.audioReader = audioProcessor.readable.getReader();
+  }
+  public async encode(mediaStream: MediaStream) {
+    this.resetStream(mediaStream);
     const videoEncoder = new VideoEncoder({
       output: (chunk, metadata) => this.handleEncodedVideoChunk(chunk, metadata),
       error: (error) => console.error('VideoEncoder error:', error)
@@ -70,7 +76,7 @@ export class Publisher {
     while (this.state === 'running') {
       await Promise.all([
       (async () => {
-        const { done: vDone, value: vFrame } = await videoReader.read();
+        const { done: vDone, value: vFrame } = await this.videoReader.read();
         if (vDone) return;
         if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
           moqVideoFrameOnEncode.set(performance.now());

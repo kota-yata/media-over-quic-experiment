@@ -3,7 +3,6 @@
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
   import { moqVideoEncodeLatencyStore } from '$lib/moq/utils/store';
-  import { text } from 'svelte/internal';
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
@@ -14,6 +13,20 @@
   let stream: MediaStream;
 
   let moqtServerUrl = 'https://localhost:4433/moq';
+
+  const camera = {
+    inputDevices: null as MediaDeviceInfo[],
+    selectedDevice: null as string
+  };
+
+  const changeDevice = async (e) => {
+    const newStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: e.target.value } } });
+    stream.removeTrack(stream.getVideoTracks()[0]);
+    stream.addTrack(newStream.getVideoTracks()[0]);
+    setLiveVideo(newStream, liveEl);
+    if (!publisher) return;
+    publisher.replaceTrack(stream);
+  }
 
   const setLiveVideo = async (stream: MediaStream, videoEl: HTMLVideoElement): Promise<MediaStream> => {
     if (!stream) throw new Error('Failed retrieving media devices');
@@ -53,6 +66,7 @@
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
       throw new Error('Error accessing media devices:');
     });
+    camera.inputDevices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === 'videoinput');
     setLiveVideo(stream, liveEl);
   });
 </script>
@@ -67,19 +81,28 @@
   <div class="container-videos">
     <div class="left">
       <h3>Publisher (Webcam capture)</h3>
-      <video autoplay muted playsinline bind:this={liveEl} />
+      <div class="left-video">
+        <video autoplay muted playsinline bind:this={liveEl} />
+        {#if camera.inputDevices}
+          <select on:change="{changeDevice}">
+            {#each camera.inputDevices as device}
+            <option value={device.deviceId}>{device.label}</option>
+            {/each}
+          </select>
+        {/if}
+      </div>
       <div class="left-server">
         <label for="ServerUrl">Relay Server</label>
         <input type="text" name="ServerUrl" bind:value={moqtServerUrl} placeholder="https://localhost:4433/moq" />
       </div>
-      <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
-      <button on:click={async () => await moqStopBroadcastOnClick()}>Stop MOQ broadcast</button>
+      <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
+      <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>
     </div>
     <div class="right">
       <h3>Subscriber</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
-      <button on:click={moqPlayStreamOnClick}>Start playing</button>
-      <button on:click={moqStopStreamOnClick}>Stop playing</button>
+      <button on:click={moqPlayStreamOnClick}>Subscribe</button>
+      <button on:click={moqStopStreamOnClick}>Unsubscribe</button>
     </div>
   </div>
 </div>
@@ -104,6 +127,19 @@
         align-items: center;
       }
       .left {
+        &-video {
+          position: relative;
+          video {
+            object-fit: contain;
+          }
+          & > select {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            border: none;
+            padding: 5px 10px;
+          }
+        }
         &-server {
           width: 100%;
           margin: 5px;
