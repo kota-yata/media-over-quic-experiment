@@ -4,7 +4,7 @@ import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
 
 interface SenderState {
-  [key: number]: {
+  [key: string]: {
     currentGroupSeq: number,
     currentObjectSeq: number,
   }
@@ -260,21 +260,21 @@ export class MOQT {
   public async sendObject(locPacket: LOC, trackName: string) {
     const targetTrack = this.getTrack(trackName);
     const trackId = targetTrack.id;
-    if (!this.senderState[trackId]) {
-      this.senderState[trackId] = {
+    if (!this.senderState[trackName]) {
+      this.senderState[trackName] = {
         currentGroupSeq: 0,
         currentObjectSeq: 0,
       };
     } else {
-      this.senderState[trackId].currentObjectSeq++;
+      this.senderState[trackName].currentObjectSeq++;
     } 
     if (locPacket.chunkType === 'key') {
-      this.senderState[trackId].currentGroupSeq++;
-      this.senderState[trackId].currentObjectSeq = 0;
+      this.senderState[trackName].currentGroupSeq++;
+      this.senderState[trackName].currentObjectSeq = 0;
     }
-    const sendOrder = (this.senderState[trackId].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
+    const sendOrder = (this.senderState[trackName].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
     const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
-    const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackId].currentGroupSeq, this.senderState[trackId].currentObjectSeq, sendOrder, locPacket.toBytes());
+    const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackName].currentGroupSeq, this.senderState[trackName].currentObjectSeq, sendOrder, locPacket.toBytes());
     const success = this.addInflightRequest(moqtObject.getId());
     if (success.success) {
       const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
