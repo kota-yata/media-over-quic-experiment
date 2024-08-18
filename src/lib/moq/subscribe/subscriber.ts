@@ -11,7 +11,7 @@ export class Subscriber {
   private canvasElement: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private waitForKeyFrame = true;
-  private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG
+  private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
   constructor(url: string) {
     this.moqt = new MOQT(url);

@@ -17,7 +17,7 @@ export const AUDIO_ENCODER_DEFAULT_CONFIG: AudioEncoderConfig = {
 };
 
 export const VIDEO_DECODER_DEFAULT_CONFIG: VideoDecoderConfig = {
-  codec: 'avc1.42000D', 
+  codec: 'avc1.42000D',
   codedHeight: 360,
   codedWidth: 480,
   colorSpace: { 'fullRange': false, 'matrix': 'smpte170m', 'primaries': 'bt709', 'transfer': 'bt709' },
@@ -45,10 +45,8 @@ export const MOQ_PARAMETER_ROLE = {
   PUBLISHER: 0x01,
   SUBSCRIBER: 0x02,
   PUBSUB: 0x03,
-}
-export const MOQ_PARAMETER_PATH = {
-  KEY: 0x01
-}
+};
+export const MOQ_PARAMETER_PATH = { KEY: 0x01 };
 export const MOQ_PARAMETER_AUTHORIZATION_INFO = 0x2;
 
 export const MOQ_MAX_PARAMS = 256;
@@ -80,7 +78,7 @@ export const MOQ_MESSAGE = {
   TRACK_STATUS: 0xE,
   STREAM_HEADER_TRACK: 0x50,
   STREAM_HEADER_GROUP: 0x51,
-}
+};
 
 export const MOQ_SESSION_CLOSE_ERROR = {
   NO_ERROR: 0x0,
@@ -90,13 +88,13 @@ export const MOQ_SESSION_CLOSE_ERROR = {
   DUPLICATE_TRACK_ALIAS: 0x4,
   PARAMETER_LENGTH_MISMATCH: 0x5,
   GOAWAY_TIMEOUT: 0x10,
-}
+};
 
 export const SUBSCRIBE_ERROR = {
   INTERNAL_ERROR: 0x0,
   INVALID_RANGE: 0x1,
   RETRY_TRACK_ALIAS: 0x2
-}
+};
 
 export const SUBSCRIBE_DONE = {
   UNSUBSCRIBED: 0x0,
@@ -106,19 +104,19 @@ export const SUBSCRIBE_DONE = {
   SUBSCRIPTION_ENDED: 0x4,
   GOING_AWAY: 0x5,
   EXPIRED: 0x6
-}
+};
 
 export const SUBSCRIBE_FILTER = {
   LATEST_GROUP: 0x1,
   LATEST_OBEJCT: 0x2,
   ABSOLUTE_START: 0x3,
   ABSOLUTE_RANGE: 0x4
-}
+};
 
 export const SUBSCRIBE_GROUP_ORDER = {
   ASCENDING: 0x1,
   DESCENDING: 0x2
-}
+};
 
 export const OBJECT_STATUS = {
   NORMAL: 0x0,
@@ -126,4 +124,4 @@ export const OBJECT_STATUS = {
   NON_EXISTENT_GROUP: 0x2,
   END_OF_GROUP: 0x3,
   END_OF_TRACK_AND_GROUP: 0x4,
-}
+};

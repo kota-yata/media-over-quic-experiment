@@ -59,7 +59,7 @@ export class MOQT {
     await this.readSetup();
     // video
     const ns = 'kota';
-    const trackNameVideo = 'kota-video'
+    const trackNameVideo = 'kota-video';
     await this.subscribe(0, ns, trackNameVideo, 'secret');
     const subscribeResponse = await this.readSubscribeResponse();
     if (!this.trackManager.getTrack(trackNameVideo)) {
@@ -69,7 +69,7 @@ export class MOQT {
         subscribeIds: [subscribeResponse.subscribeId],
         type: 'video',
         priority: 1,
-      })
+      });
     } else {
       this.trackManager.addSubscribeId(trackNameVideo, subscribeResponse.subscribeId);
     }
@@ -157,7 +157,7 @@ export class MOQT {
   // SUBSCRIBE
   private generateSubscribeMessage(subscribeId: number, ns: string, trackName: string, authInfo: string) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
-    const subscribeIdBytes = numberToVarInt(subscribeId)
+    const subscribeIdBytes = numberToVarInt(subscribeId);
     const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
     const namespaceBytes = stringToBytes(ns);
     const trackNameBytes = stringToBytes(trackName);
@@ -240,7 +240,7 @@ export class MOQT {
   private generateObjectMessage(subscribeId, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.OBJECT_STREAM);
     const subscribeIdBytes = numberToVarInt(subscribeId);
-    const trackAliasBytes =  numberToVarInt(subscribeId); // temporary value
+    const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
     const groupIdBytes = numberToVarInt(groupSeq);
     const objectIdBytes = numberToVarInt(objectSeq);
     const sendOrderBytes = numberToVarInt(sendOrder);
@@ -249,7 +249,7 @@ export class MOQT {
     return {
       getId: () => `${subscribeId}-${groupSeq}-${objectSeq}-${sendOrder}`,
       toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, data])
-    }
+    };
   }
   public async sendObject(locPacket: LOC, trackName: string) {
     const targetTrack = this.trackManager.getTrack(trackName);
@@ -260,7 +260,7 @@ export class MOQT {
       };
     } else {
       this.senderState[trackName].currentObjectSeq++;
-    } 
+    }
     if (locPacket.chunkType === 'key') {
       this.senderState[trackName].currentGroupSeq++;
       this.senderState[trackName].currentObjectSeq = 0;
@@ -326,7 +326,6 @@ export class MOQT {
     }
     return ret;
   }
-
   private addInflightRequest(requestId: string): { success: boolean } {
     if (this.inflightRequests.length > this.MAX_INFLIGHT_REQUESTS) {
       return { success: false };

@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-interface Track { 
+interface Track {
   namespace: string,
   name: string,
   alias?: string,
@@ -18,6 +18,4 @@ interface Track {
   priority: number,
 }
 
-export {
-  Track
-};
+export { Track };

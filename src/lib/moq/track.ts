@@ -1,9 +1,9 @@
-import type { Track } from "src/app";
+import type { Track } from 'src/app';
 
 export class TrackManager {
-  private tracks: Track[] = []
+  private tracks: Track[] = [];
   public addTrack(track: Track) {
-    this.tracks.push(track)
+    this.tracks.push(track);
   }
   public getTrack(name: string) {
     return this.tracks.find(track => track.name === name);
@@ -12,12 +12,12 @@ export class TrackManager {
     return this.tracks.find(track => track.subscribeIds.includes(id));
   }
   public getAllTracks() {
-    return this.tracks
+    return this.tracks;
   }
   public addSubscribeId(name: string, id: number) {
     this.tracks.map(track => {
       if (track.name === name) {
-        track.subscribeIds.push(id)
+        track.subscribeIds.push(id);
       }
     });
   }

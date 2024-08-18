@@ -6,8 +6,8 @@
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
-  let moqIsPlaying: boolean = false;
-  let moqIsBroadcasting: boolean = false;
+  let moqIsPlaying = false;
+  let moqIsBroadcasting = false;
   let subscriber: Subscriber;
   let publisher: Publisher;
   let stream: MediaStream;
@@ -26,7 +26,7 @@
     setLiveVideo(newStream, liveEl);
     if (!publisher) return;
     publisher.replaceTrack(stream);
-  }
+  };
 
   const setLiveVideo = async (stream: MediaStream, videoEl: HTMLVideoElement): Promise<MediaStream> => {
     if (!stream) throw new Error('Failed retrieving media devices');
@@ -41,13 +41,13 @@
     await publisher.init();
     await publisher.encode(stream);
     moqIsBroadcasting = true;
-  }
+  };
   const moqStopBroadcastOnClick = async () => {
     // console.log(moqIsBroadcasting)
     // if (!moqIsBroadcasting) return;
     await publisher.stop();
     moqIsBroadcasting = false;
-  }
+  };
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
     // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
@@ -55,18 +55,20 @@
     await subscriber.init();
     subscriber.setCanvasElement(moqEl);
     moqIsPlaying = true;
-  }
+  };
   const moqStopStreamOnClick = async () => {
     if (!moqIsPlaying) return;
     await subscriber.stop();
     moqIsPlaying = false;
-  }
+  };
 
   onMount(async () => {
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
       throw new Error('Error accessing media devices:');
     });
-    camera.inputDevices = (await navigator.mediaDevices.enumerateDevices()).filter((device) => device.kind === 'videoinput');
+    camera.inputDevices = (await navigator.mediaDevices.enumerateDevices()).filter(
+      (device) => device.kind === 'videoinput'
+    );
     setLiveVideo(stream, liveEl);
   });
 </script>
@@ -84,9 +86,9 @@
       <div class="left-video">
         <video autoplay muted playsinline bind:this={liveEl} />
         {#if camera.inputDevices}
-          <select on:change="{changeDevice}">
+          <select on:change={changeDevice}>
             {#each camera.inputDevices as device}
-            <option value={device.deviceId}>{device.label}</option>
+              <option value={device.deviceId}>{device.label}</option>
             {/each}
           </select>
         {/if}

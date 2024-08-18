@@ -5,7 +5,7 @@ import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
 export class Publisher {
-  private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG
+  private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
   private videoTrackName = 'kota-video';
   private audioTrackName = 'kota-audio';
@@ -74,15 +74,15 @@ export class Publisher {
 
     while (this.state === 'running') {
       await Promise.all([
-      (async () => {
-        const { done: vDone, value: vFrame } = await this.videoReader.read();
-        if (vDone) return;
-        if (this.moqt.trackManager.getTrack(this.videoTrackName).subscribeIds.length > 0) {
-          moqVideoFrameOnEncode.set(performance.now());
-          videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
-        }
-        vFrame.close();
-      })(),
+        (async () => {
+          const { done: vDone, value: vFrame } = await this.videoReader.read();
+          if (vDone) return;
+          if (this.moqt.trackManager.getTrack(this.videoTrackName).subscribeIds.length > 0) {
+            moqVideoFrameOnEncode.set(performance.now());
+            videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
+          }
+          vFrame.close();
+        })(),
       // (async () => {
       //   const { done: aDone, value: aFrame } = await audioReader.read();
       //   if (aDone) return;
@@ -93,7 +93,7 @@ export class Publisher {
       // })()
       ]);
     }
-    }
+  }
   private async handleEncodedVideoChunk(chunk: EncodedVideoChunk, metadata) {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
@@ -102,7 +102,7 @@ export class Publisher {
     this.videoChunkCount++;
     try {
       await this.moqt.sendObject(locPacket, this.videoTrackName);
-    } catch(e) {
+    } catch (e) {
       console.error('something went wrong', e);
     }
   }
