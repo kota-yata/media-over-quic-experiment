@@ -124,6 +124,7 @@ export class Publisher {
         await this.moqt.sendSubscribeResponse(subscribe.subscribeId, 0);
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
+        this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
         console.log('Received unsubscribe from id', unsubscribe.subscribeId);
       } else {
         throw new Error('Unexpected message type received');

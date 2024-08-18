@@ -21,4 +21,12 @@ export class TrackManager {
       }
     });
   }
+  public removeSubscribeId(id: number) {
+    this.tracks.map(track => {
+      const index = track.subscribeIds.indexOf(id);
+      if (index > -1) {
+        track.subscribeIds.splice(index, 1);
+      }
+    });
+  }
 }
