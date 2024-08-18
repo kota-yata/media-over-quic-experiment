@@ -22,20 +22,19 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init() {
-    // generate new tracks
-    this.moqt.setTrack(this.videoTrackName, {
+    this.moqt.trackManager.addTrack({
       namespace: 'kota',
-      id: 0,
+      name: 'kota-video',
+      subscribeIds: [],
       type: 'video',
-      priority: 1,
-      numSubscribers: 0,
+      priority: 2,
     });
-    this.moqt.setTrack(this.audioTrackName, {
+    this.moqt.trackManager.addTrack({
       namespace: 'kota',
-      id: 1,
+      name: 'kota-audio',
+      subscribeIds: [],
       type: 'audio',
-      priority: 1000,
-      numSubscribers: 0,
+      priority: 1,
     });
     await this.moqt.initControlStream();
     await this.moqt.startPublisher();
@@ -78,7 +77,7 @@ export class Publisher {
       (async () => {
         const { done: vDone, value: vFrame } = await this.videoReader.read();
         if (vDone) return;
-        if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
+        if (this.moqt.trackManager.getTrack(this.videoTrackName).subscribeIds.length > 0) {
           moqVideoFrameOnEncode.set(performance.now());
           videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
         }
@@ -120,12 +119,12 @@ export class Publisher {
       if (messageType === MOQ_MESSAGE.SUBSCRIBE) {
         const subscribe = await this.moqt.readSubscribe();
         console.log(`Received subscribe request for track ${subscribe.trackName}`);
-        const track = this.moqt.getTrack(subscribe.trackName);
-        track.numSubscribers++;
-        console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
-        await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
+        this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
+        console.log(`Subscribed to track ${subscribe.trackName}`);
+        await this.moqt.sendSubscribeResponse(subscribe.subscribeId, 0);
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
+        this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
         console.log('Received unsubscribe from id', unsubscribe.subscribeId);
       } else {
         throw new Error('Unexpected message type received');
