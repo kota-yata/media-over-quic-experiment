@@ -64,14 +64,14 @@
 <!-- svelte-ignore a11y-media-has-caption -->
 <div class="container">
   <h1>Video Call with MoQT</h1>
+  <div class="relay-server">
+    <label for="relay-server-url">Relay Server</label>
+    <input type="text" name="relay-server-url" bind:value={moqtServerUrl} placeholder="https://localhost:4433/moq" />
+  </div>
   <div class="container-videos">
     <div class="left">
       <h3>Publisher (Webcam capture)</h3>
       <video autoplay muted playsinline bind:this={liveEl} />
-      <div class="left-server">
-        <label for="ServerUrl">Relay Server</label>
-        <input type="text" name="ServerUrl" bind:value={moqtServerUrl} placeholder="https://localhost:4433/moq" />
-      </div>
       <button on:click={async () => await moqBroadcastOnclick()}>Start MOQ broadcast</button>
       <button on:click={async () => await moqStopBroadcastOnClick()}>Stop MOQ broadcast</button>
     </div>
@@ -91,6 +91,16 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    .relay-server {
+      width: 100%;
+      margin: 5px;
+      display: flex;
+      justify-content: center;
+      input {
+        margin-left: 5px;
+        width: 50%;
+      }
+    }
     &-videos {
       margin: 10px 0 0 0;
       display: flex;
@@ -102,18 +112,6 @@
         flex-direction: column;
         justify-content: start;
         align-items: center;
-      }
-      .left {
-        &-server {
-          width: 100%;
-          margin: 5px;
-          display: flex;
-          justify-content: center;
-          input {
-            margin-left: 5px;
-            width: 50%;
-          }
-        }
       }
     }
     canvas {
