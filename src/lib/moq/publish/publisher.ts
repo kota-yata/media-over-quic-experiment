@@ -21,21 +21,22 @@ export class Publisher {
     this.videoChunkCount = 0;
     this.audioChunkCount = 0;
   }
-  public async init() {
+  public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number }) {
     this.moqt.trackManager.addTrack({
-      namespace: 'kota',
-      name: 'kota-video',
+      namespace: props.namespace,
+      name: props.videoTrackName,
       subscribeIds: [],
       type: 'video',
       priority: 2,
     });
     this.moqt.trackManager.addTrack({
-      namespace: 'kota',
-      name: 'kota-audio',
+      namespace: props.namespace,
+      name: props.audioTrackName,
       subscribeIds: [],
       type: 'audio',
       priority: 1,
     });
+    this.keyframeDuration = props.keyFrameDuration;
     await this.moqt.initControlStream();
     await this.moqt.startPublisher();
     this.state = 'running';

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
-  import { moqVideoEncodeLatencyStore } from '$lib/moq/utils/store';
+  import { moqVideoEncodeLatencyStore, moqVideoTransmissionLatencyStore, moqVideoDecodeLatencyStore } from '$lib/moq/utils/store';
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
@@ -16,6 +16,7 @@
   let moqtTrackNamespace = 'kota';
   let moqtVideoTrackName = 'kota-video';
   let moqtAudioTrackName = 'kota-audio';
+  let moqtKeyFrameDuration = 60;
 
   const camera = {
     inputDevices: null as MediaDeviceInfo[],
@@ -39,9 +40,8 @@
   const moqBroadcastOnclick = async () => {
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
-    // publisher = new Publisher('https://norsk-moq-linode-chicago.englishm.net:4443');
     publisher = new Publisher(moqtServerUrl);
-    await publisher.init();
+    await publisher.init({ namespace: moqtTrackNamespace, videoTrackName: moqtVideoTrackName, audioTrackName: moqtAudioTrackName, keyFrameDuration: moqtKeyFrameDuration });
     await publisher.encode(stream);
     moqIsBroadcasting = true;
   };
@@ -113,6 +113,10 @@
           <label for="track-info-audio">Audio Track Name</label>
           <input type="text" name="track-info-audio" bind:value={moqtAudioTrackName} />
         </div>
+        <div>
+          <label for="track-info-keyframe-duration">Key Frame Duration {moqtKeyFrameDuration}</label>
+          <input type="range" min="1" max="120" name="track-info-keyframe-duration" bind:value={moqtKeyFrameDuration} />
+        </div>
       </div>
       <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
       <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>
@@ -141,6 +145,7 @@
       input {
         margin-left: 5px;
         width: 50%;
+        max-width: 300px;
       }
     }
     &-videos {
