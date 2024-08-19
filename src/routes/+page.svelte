@@ -13,6 +13,9 @@
   let stream: MediaStream;
 
   let moqtServerUrl = 'https://localhost:4433/moq';
+  let moqtTrackNamespace = 'kota';
+  let moqtVideoTrackName = 'kota-video';
+  let moqtAudioTrackName = 'kota-audio';
 
   const camera = {
     inputDevices: null as MediaDeviceInfo[],
@@ -82,7 +85,7 @@
   <h1>Video Call with MoQT</h1>
   <div class="relay-server">
     <label for="relay-server-url">Relay Server</label>
-    <input type="text" name="relay-server-url" bind:value={moqtServerUrl} placeholder="https://localhost:4433/moq" />
+    <input type="text" name="relay-server-url" bind:value={moqtServerUrl} />
   </div>
   <div class="container-videos">
     <div class="left">
@@ -96,6 +99,20 @@
             {/each}
           </select>
         {/if}
+      </div>
+      <div class="left-track">
+        <div>
+          <label for="track-info-namespace">Track Namespace</label>
+          <input type="text" name="track-info-namespace" bind:value={moqtTrackNamespace} />
+        </div>
+        <div>
+          <label for="track-info-video">Video Track Name</label>
+          <input type="text" name="track-info-video" bind:value={moqtVideoTrackName} />
+        </div>
+        <div>
+          <label for="track-info-audio">Audio Track Name</label>
+          <input type="text" name="track-info-audio" bind:value={moqtAudioTrackName} />
+        </div>
       </div>
       <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
       <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>
@@ -152,14 +169,9 @@
             padding: 5px 10px;
           }
         }
-        &-server {
-          width: 100%;
-          margin: 5px;
-          display: flex;
-          justify-content: center;
-          input {
-            margin-left: 5px;
-            width: 50%;
+        &-track {
+          & > div {
+            margin: 5px;
           }
         }
       }
