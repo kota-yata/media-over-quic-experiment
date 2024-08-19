@@ -1,5 +1,5 @@
-import { writable }from "svelte/store";
-import type { Writable } from "svelte/store";
+import { writable } from 'svelte/store';
+import type { Writable } from 'svelte/store';
 
 export const moqVideoEncodeLatencyStore = writable<number>(0);
 export const moqVideoTransmissionLatencyStore = writable<number>(0);
@@ -11,7 +11,7 @@ export const moqVideoDecodeLatencyStore = writable<number>(0);
 // }
 
 export class moqVideoFrameOnEncode {
-  private static store: number = 0;
+  private static store = 0;
   public static get() {
     return moqVideoFrameOnEncode.store;
   }
@@ -24,7 +24,7 @@ export class moqVideoFrameOnEncode {
 }
 
 export class moqVideoFrameOnDecode {
-  private static store: number = 0;
+  private static store = 0;
   public static get() {
     return moqVideoFrameOnDecode.store;
   }

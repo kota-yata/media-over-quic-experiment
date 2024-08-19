@@ -11,7 +11,7 @@ export class Subscriber {
   private canvasElement: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private waitForKeyFrame = true;
-  private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG
+  private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
   constructor(url: string) {
     this.moqt = new MOQT(url);
@@ -51,7 +51,7 @@ export class Subscriber {
   public async processObject(readerStream) {
     moqVideoFrameOnDecode.set(performance.now());
     const object = await this.moqt.readObject(readerStream);
-    const trackType = this.moqt.searchTrackType(object.trackAlias);
+    const trackType = this.moqt.trackManager.getTrackBySubscribeId(object.subscribeId).type;
     const loc = new LOC();
     try {
       await loc.fromBytes(readerStream);

@@ -45,8 +45,8 @@ export class LOC {
     const timestampBytes = numberToVarInt(this.timestamp);
     const seqIdBytes = numberToVarInt(this.seqId);
     const metadataSizeBytes = numberToVarInt(this.metadata ? this.metadata.byteLength : 0);
-    const metadataBytes = this.metadata
-    const dataBytes = this.data
+    const metadataBytes = this.metadata;
+    const dataBytes = this.data;
     if (this.metadata) {
       return concatBuffer([mediaTypeBytes, chunkTypeBytes, timestampBytes, seqIdBytes, metadataSizeBytes, metadataBytes, dataBytes]);
     } else {

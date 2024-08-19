@@ -1,5 +1,5 @@
 {
-	"name": "my-app",
+	"name": "media-over-quic-experiment",
 	"version": "0.0.1",
 	"scripts": {
 		"dev": "vite dev --host 0.0.0.0",
@@ -29,12 +29,11 @@
 		"svelte-check": "^3.0.1",
 		"tslib": "^2.4.1",
 		"typescript": "^4.9.3",
-		"vite": "^4.1.5"
+		"vite": "^4.5.3"
 	},
 	"type": "module",
 	"dependencies": {
 		"amazon-ivs-web-broadcast": "^1.12.0",
-		"hls.js": "^1.5.8",
-		"hono": "^4.2.5"
+		"hls.js": "^1.5.8"
 	}
 }

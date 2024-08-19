@@ -1,21 +1,14 @@
+import type { Track } from 'src/app';
 import { MOQ_DRAFT04_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import type { LOC } from './loc';
-import { numberToVarInt, concatBuffer, varIntToNumber, buffRead } from './utils/bytes';
+import { TrackManager } from './track';
+import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
 
 interface SenderState {
-  [key: number]: {
+  [key: string]: {
     currentGroupSeq: number,
     currentObjectSeq: number,
-  }
-}
-interface Track { 
-  [key: string]: {
-    namespace: string,
-    id: number,
-    type: string,
-    priority: number,
-    numSubscribers: number,
   }
 }
 
@@ -25,11 +18,12 @@ export class MOQT {
   private controlStream: WebTransportBidirectionalStream;
   private controlWriter: WritableStream;
   private controlReader: ReadableStream;
-  private moqTracks: Track = {};
   private senderState: SenderState = {};
   private inflightRequests: string[] = [];
+  public trackManager: TrackManager;
   constructor(url: string) {
     this.wt = new WebTransport(url);
+    this.trackManager = new TrackManager();
   }
   public async initControlStream() {
     await this.wt.ready;
@@ -45,7 +39,7 @@ export class MOQT {
     await this.setup(MOQ_PARAMETER_ROLE.PUBLISHER);
     await this.readSetup();
     const announcedNs = [];
-    for (const [trackType, trackData] of Object.entries(this.moqTracks)) {
+    for (const trackData of this.trackManager.getAllTracks()) {
       if (announcedNs.includes(trackData.namespace)) continue;
       announcedNs.push(trackData.namespace);
       await this.announce(trackData.namespace, 'secret');
@@ -65,38 +59,42 @@ export class MOQT {
     await this.readSetup();
     // video
     const ns = 'kota';
-    const trackName = 'kota-video'
-    await this.subscribe(0, ns, trackName, 'secret');
+    const trackNameVideo = 'kota-video';
+    await this.subscribe(0, ns, trackNameVideo, 'secret');
     const subscribeResponse = await this.readSubscribeResponse();
-    if (!this.getTrack(trackName)) {
-      this.moqTracks[trackName] = {
+    if (!this.trackManager.getTrack(trackNameVideo)) {
+      this.trackManager.addTrack({
         namespace: ns,
-        id: subscribeResponse.subscribeId,
+        name: trackNameVideo,
+        subscribeIds: [subscribeResponse.subscribeId],
         type: 'video',
         priority: 1,
-        numSubscribers: 1,
-      };
+      });
     } else {
-      this.moqTracks[trackName].numSubscribers++;
+      this.trackManager.addSubscribeId(trackNameVideo, subscribeResponse.subscribeId);
     }
     // audio
-    // await this.subscribe('kota', 'kota-audio', 'secret');
-    // const subscribeResponseAudio = await this.readSubscribeResponse();
-    // console.log(`SUBSCRIBE Response: ${subscribeResponseAudio.namespace} ${subscribeResponseAudio.trackName} ${subscribeResponseAudio.trackId} ${subscribeResponseAudio.expires}`);
-    // if (!this.getTrack(subscribeResponseAudio.trackName)) {
-    //   this.moqTracks[subscribeResponseAudio.trackName] = {
-    //     namespace: subscribeResponseAudio.namespace,
-    //     id: subscribeResponseAudio.trackId,
+    // const trackNameAudio = 'kota-audio';
+    // await this.subscribe(0, ns, trackNameAudio, 'secret');
+    // const subscribeResponse = await this.readSubscribeResponse();
+    // if (!this.trackManager.getTrack(trackNameAudio)) {
+    //   this.trackManager.addTrack({
+    //     namespace: ns,
+    //     name: trackNameAudio,
+    //     subscribeIds: [subscribeResponse.subscribeId],
     //     type: 'audio',
-    //     priority: 10000,
-    //     numSubscribers: 1,
-    //   };
+    //     priority: 1,
+    //   })
     // } else {
-    //   this.moqTracks[subscribeResponseAudio.trackName].numSubscribers++;
+    //   this.trackManager.addSubscribeId(trackNameAudio, subscribeResponse.subscribeId);
     // }
   }
   public async stopSubscriber() {
     await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
+  }
+  // read message type
+  public async readControlMessageType(): Promise<number> {
+    return await varIntToNumber(this.controlReader);
   }
   // SETUP
   private generateSetupMessage(moqIntRole: number) {
@@ -127,10 +125,10 @@ export class MOQT {
   // ANNOUNCE
   private generateAnnounceMessage(ns: string, authInfo: string) {
     const messageType = numberToVarInt(MOQ_MESSAGE.ANNOUNCE);
-    const namespace = this.stringToBytes(ns);
+    const namespace = stringToBytes(ns);
     const numberOfParams = numberToVarInt(1);
     const authInfoIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
-    const authInfoBytes = this.stringToBytes(authInfo);
+    const authInfoBytes = stringToBytes(authInfo);
     return concatBuffer([messageType, namespace, numberOfParams, authInfoIdBytes, authInfoBytes]);
   }
   public async announce(ns: string, authInfo: string) {
@@ -147,7 +145,7 @@ export class MOQT {
   }
   public generateUnannounceMessage(ns: string) {
     const messageType = numberToVarInt(MOQ_MESSAGE.UNANNOUNCE);
-    const namespace = this.stringToBytes(ns);
+    const namespace = stringToBytes(ns);
     return concatBuffer([messageType, namespace]);
   }
   public async unannounce() {
@@ -159,10 +157,10 @@ export class MOQT {
   // SUBSCRIBE
   private generateSubscribeMessage(subscribeId: number, ns: string, trackName: string, authInfo: string) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
-    const subscribeIdBytes = numberToVarInt(subscribeId)
+    const subscribeIdBytes = numberToVarInt(subscribeId);
     const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
-    const namespaceBytes = this.stringToBytes(ns);
-    const trackNameBytes = this.stringToBytes(trackName);
+    const namespaceBytes = stringToBytes(ns);
+    const trackNameBytes = stringToBytes(trackName);
     // const subscriberPriorityBytes = numberToVarInt(1); // temporary constant
     const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // temporary constant
     // const groupOrderBytes = numberToVarInt(SUBSCRIBE_GROUP_ORDER.ASCENDING); // temporary constant prob v5
@@ -172,7 +170,7 @@ export class MOQT {
     // const endObjectBytesValue
     const numberOfParamsBytes = numberToVarInt(1);
     const authInfoParamIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
-    const authInfoBytes = this.stringToBytes(authInfo);
+    const authInfoBytes = stringToBytes(authInfo);
     return concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, namespaceBytes, trackNameBytes, filterTypeBytes, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
   }
   public async subscribe(subscribeId: number, ns: string, trackName: string, authInfo: string) {
@@ -181,10 +179,6 @@ export class MOQT {
   }
   public async readSubscribe() {
     const ret = { subscribeId: -1, trackAlias: -1, namespace: '', trackName: '', filterType: -1, startGroup: -1, startObject: -1, endGroup: -1, endObject: -1, parameters: null };
-    const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE.SUBSCRIBE) {
-      throw new Error(`SUBSCRIBE type must be ${MOQ_MESSAGE.SUBSCRIBE}, got ${type}`);
-    }
     ret.subscribeId = await varIntToNumber(this.controlReader);
     ret.trackAlias = await varIntToNumber(this.controlReader);
     ret.namespace = await this.readString();
@@ -202,17 +196,17 @@ export class MOQT {
 
     return ret;
   }
-  private generateSubscribeResponseMessage(ns: string, trackName: string, trackId: number, expiresMs) {
+  private generateSubscribeResponseMessage(subscriptionId: number, expiresMs) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE_OK);
-    const subscriptionIdBytes = numberToVarInt(trackId);
+    const subscriptionIdBytes = numberToVarInt(subscriptionId);
     const expiresBytes = numberToVarInt(expiresMs);
     const contentExistsBytes = numberToVarInt(1); // temporary constant
     const largestGroupIdBytes = numberToVarInt(0); // temporary constant
     const largestObjectIdBytes = numberToVarInt(0); // temporary constant
     return concatBuffer([messageTypeBytes, subscriptionIdBytes, expiresBytes, contentExistsBytes, largestGroupIdBytes, largestObjectIdBytes]);
   }
-  public async sendSubscribeResponse(ns: string, trackName: string, trackId: number, expiresMs: number) {
-    const subscribeResponse = this.generateSubscribeResponseMessage(ns, trackName, trackId, expiresMs);
+  public async sendSubscribeResponse(subscriptionId: number, expiresMs: number) {
+    const subscribeResponse = this.generateSubscribeResponseMessage(subscriptionId, expiresMs);
     await this.send(this.controlWriter, subscribeResponse);
   }
   public async readSubscribeResponse() {
@@ -238,51 +232,54 @@ export class MOQT {
     const unsubscribeMessage = this.generateUnsubscribeMessage(subscribeId);
     await this.send(this.controlWriter, unsubscribeMessage);
   }
-  private readUnsubscribe() {
-    // TODO
+  public async readUnsubscribe() {
+    const subscribeId = await varIntToNumber(this.controlReader);
+    return { subscribeId };
   }
   // OBJECT
-  private generateObjectMessage(trackId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
+  private generateObjectMessage(subscribeId, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.OBJECT_STREAM);
-    const subscribeIdBytes = numberToVarInt(trackId); // should be bound with subscribeId, not track alias
-    const trackAliasBytes =  numberToVarInt(trackId);
+    const subscribeIdBytes = numberToVarInt(subscribeId);
+    const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
     const groupIdBytes = numberToVarInt(groupSeq);
     const objectIdBytes = numberToVarInt(objectSeq);
     const sendOrderBytes = numberToVarInt(sendOrder);
     const objectStatusBytes = numberToVarInt(OBJECT_STATUS.NORMAL);
     const performanceBytes = numberToVarInt(performance.now());
     return {
-      getId: () => `${trackId}-${groupSeq}-${objectSeq}-${sendOrder}`,
+      getId: () => `${subscribeId}-${groupSeq}-${objectSeq}-${sendOrder}`,
       toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, data])
-    }
+    };
   }
   public async sendObject(locPacket: LOC, trackName: string) {
-    const targetTrack = this.getTrack(trackName);
-    const trackId = targetTrack.id;
-    if (!this.senderState[trackId]) {
-      this.senderState[trackId] = {
+    const targetTrack = this.trackManager.getTrack(trackName);
+    if (!this.senderState[trackName]) {
+      this.senderState[trackName] = {
         currentGroupSeq: 0,
         currentObjectSeq: 0,
       };
     } else {
-      this.senderState[trackId].currentObjectSeq++;
-    } 
+      this.senderState[trackName].currentObjectSeq++;
+    }
     if (locPacket.chunkType === 'key') {
-      this.senderState[trackId].currentGroupSeq++;
-      this.senderState[trackId].currentObjectSeq = 0;
+      this.senderState[trackName].currentGroupSeq++;
+      this.senderState[trackName].currentObjectSeq = 0;
     }
-    const sendOrder = (this.senderState[trackId].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
+    const sendOrder = (this.senderState[trackName].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
     const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
-    const moqtObject = this.generateObjectMessage(trackId, this.senderState[trackId].currentGroupSeq, this.senderState[trackId].currentObjectSeq, sendOrder, locPacket.toBytes());
-    const success = this.addInflightRequest(moqtObject.getId());
-    if (success.success) {
-      const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
-      moqVideoEncodeLatencyStore.set(latency);
-      await this.send(uniStream, moqtObject.toBytes());
-      uniStream.close().finally(() => {
-        this.removeInflightRequest(moqtObject.getId());
-      });
+    for (const subscribeId of targetTrack.subscribeIds) {
+      const moqtObject = this.generateObjectMessage(subscribeId, this.senderState[trackName].currentGroupSeq, this.senderState[trackName].currentObjectSeq, sendOrder, locPacket.toBytes());
+      const success = this.addInflightRequest(moqtObject.getId());
+      if (success.success) {
+        const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
+        moqVideoEncodeLatencyStore.set(latency);
+        await this.send(uniStream, moqtObject.toBytes());
+        uniStream.close().finally(() => {
+          this.removeInflightRequest(moqtObject.getId());
+        });
+      }
     }
+
   }
   public async readObject(readableStream: ReadableStream) {
     const type = await varIntToNumber(readableStream);
@@ -302,12 +299,6 @@ export class MOQT {
     return ret;
   }
   // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status
-  // MISC
-  private stringToBytes(str: string) {
-    const dataStrBytes = new TextEncoder().encode(str);
-    const dataStrLengthBytes = numberToVarInt(dataStrBytes.byteLength);
-    return concatBuffer([dataStrLengthBytes, dataStrBytes]);
-  }
   private async readString() {
     const size = await varIntToNumber(this.controlReader);
     const buffer = await buffRead(this.controlReader, size);
@@ -334,27 +325,6 @@ export class MOQT {
       }
     }
     return ret;
-  }
-  // Track management
-  public getTrack(trackName: string) {
-    return this.moqTracks[trackName];
-  }
-  public setTrack(trackName: string, props: { namespace: string, id: number, type: string, priority: number, numSubscribers: number }) {
-    this.moqTracks[trackName] = {
-      namespace: props.namespace,
-      id: props.id,
-      type: props.type,
-      priority: props.priority,
-      numSubscribers: props.numSubscribers,
-    };
-  }
-  public searchTrackType(trackId: number) {
-    for (const [trackName, trackData] of Object.entries(this.moqTracks)) {
-      if (trackData.id === trackId) {
-        return trackData.type;
-      }
-    }
-    return null;
   }
   private addInflightRequest(requestId: string): { success: boolean } {
     if (this.inflightRequests.length > this.MAX_INFLIGHT_REQUESTS) {

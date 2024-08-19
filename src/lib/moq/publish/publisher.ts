@@ -1,14 +1,16 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, VIDEO_ENCODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
 export class Publisher {
-  private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG
+  private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
   private videoTrackName = 'kota-video';
   private audioTrackName = 'kota-audio';
+  private videoReader: ReadableStreamDefaultReader;
+  private audioReader: ReadableStreamDefaultReader;
   private keyframeDuration = 60;
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
@@ -20,20 +22,19 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init() {
-    // generate new tracks
-    this.moqt.setTrack(this.videoTrackName, {
+    this.moqt.trackManager.addTrack({
       namespace: 'kota',
-      id: 0,
+      name: 'kota-video',
+      subscribeIds: [],
       type: 'video',
-      priority: 1,
-      numSubscribers: 0,
+      priority: 2,
     });
-    this.moqt.setTrack(this.audioTrackName, {
+    this.moqt.trackManager.addTrack({
       namespace: 'kota',
-      id: 1,
+      name: 'kota-audio',
+      subscribeIds: [],
       type: 'audio',
-      priority: 1000,
-      numSubscribers: 0,
+      priority: 1,
     });
     await this.moqt.initControlStream();
     await this.moqt.startPublisher();
@@ -45,16 +46,20 @@ export class Publisher {
     this.state = 'stopped';
     console.log('stopped');
   }
-  public async encode(mediaStream: MediaStream) {
+  public async replaceTrack(mediaStream: MediaStream) {
+    this.resetStream(mediaStream);
+  }
+  public resetStream(mediaStream: MediaStream) {
+    // stream removal and addition are done in page.svelte
     const videoTrack = mediaStream.getVideoTracks()[0];
     const audioTrack = mediaStream.getAudioTracks()[0];
-
     const videoProcessor = new MediaStreamTrackProcessor({ track: videoTrack });
     const audioProcessor = new MediaStreamTrackProcessor({ track: audioTrack });
-
-    const videoReader: ReadableStreamDefaultReader = videoProcessor.readable.getReader();
-    const audioReader: ReadableStreamDefaultReader = audioProcessor.readable.getReader();
-
+    this.videoReader = videoProcessor.readable.getReader();
+    this.audioReader = audioProcessor.readable.getReader();
+  }
+  public async encode(mediaStream: MediaStream) {
+    this.resetStream(mediaStream);
     const videoEncoder = new VideoEncoder({
       output: (chunk, metadata) => this.handleEncodedVideoChunk(chunk, metadata),
       error: (error) => console.error('VideoEncoder error:', error)
@@ -69,15 +74,15 @@ export class Publisher {
 
     while (this.state === 'running') {
       await Promise.all([
-      (async () => {
-        const { done: vDone, value: vFrame } = await videoReader.read();
-        if (vDone) return;
-        if (this.moqt.getTrack(this.videoTrackName).numSubscribers > 0) {
-          moqVideoFrameOnEncode.set(performance.now());
-          videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
-        }
-        vFrame.close();
-      })(),
+        (async () => {
+          const { done: vDone, value: vFrame } = await this.videoReader.read();
+          if (vDone) return;
+          if (this.moqt.trackManager.getTrack(this.videoTrackName).subscribeIds.length > 0) {
+            moqVideoFrameOnEncode.set(performance.now());
+            videoEncoder.encode(vFrame, { keyFrame: this.videoChunkCount % this.keyframeDuration === 0 });
+          }
+          vFrame.close();
+        })(),
       // (async () => {
       //   const { done: aDone, value: aFrame } = await audioReader.read();
       //   if (aDone) return;
@@ -88,7 +93,7 @@ export class Publisher {
       // })()
       ]);
     }
-    }
+  }
   private async handleEncodedVideoChunk(chunk: EncodedVideoChunk, metadata) {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
@@ -97,7 +102,7 @@ export class Publisher {
     this.videoChunkCount++;
     try {
       await this.moqt.sendObject(locPacket, this.videoTrackName);
-    } catch(e) {
+    } catch (e) {
       console.error('something went wrong', e);
     }
   }
@@ -110,12 +115,20 @@ export class Publisher {
   }
   public async startLoopSubscriptionsLoop() {
     while (this.state === 'running') {
-      const subscribe = await this.moqt.readSubscribe();
-      console.log(`Received subscribe request for track ${subscribe.trackName}`);
-      const track = this.moqt.getTrack(subscribe.trackName);
-      track.numSubscribers++;
-      console.log(`Subscribed to track ${subscribe.trackName} with id ${track.id} and ${track.numSubscribers} subscribers`);
-      await this.moqt.sendSubscribeResponse(subscribe.namespace, subscribe.trackName, track.id, 0);
+      const messageType = await this.moqt.readControlMessageType();
+      if (messageType === MOQ_MESSAGE.SUBSCRIBE) {
+        const subscribe = await this.moqt.readSubscribe();
+        console.log(`Received subscribe request for track ${subscribe.trackName}`);
+        this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
+        console.log(`Subscribed to track ${subscribe.trackName}`);
+        await this.moqt.sendSubscribeResponse(subscribe.subscribeId, 0);
+      } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
+        const unsubscribe = await this.moqt.readUnsubscribe();
+        this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
+        console.log('Received unsubscribe from id', unsubscribe.subscribeId);
+      } else {
+        throw new Error('Unexpected message type received');
+      }
     }
   }
 }

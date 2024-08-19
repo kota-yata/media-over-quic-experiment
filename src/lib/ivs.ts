@@ -18,4 +18,4 @@ export const broadcast = async (mediaStream: MediaStream, streamKey: string) => 
   } catch (error) {
     console.error('Failed to start broadcast:', error);
   }
-} 
+};
