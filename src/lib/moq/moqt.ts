@@ -248,7 +248,7 @@ export class MOQT {
     const performanceBytes = numberToVarInt(performance.now());
     return {
       getId: () => `${subscribeId}-${groupSeq}-${objectSeq}-${sendOrder}`,
-      toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, data])
+      toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, performanceBytes, data])
     };
   }
   public async sendObject(locPacket: LOC, trackName: string) {
@@ -279,7 +279,6 @@ export class MOQT {
         });
       }
     }
-
   }
   public async readObject(readableStream: ReadableStream) {
     const type = await varIntToNumber(readableStream);
@@ -292,9 +291,9 @@ export class MOQT {
     const objId = await varIntToNumber(readableStream);
     const sendOrder = await varIntToNumber(readableStream);
     const objectStatus = await varIntToNumber(readableStream);
-    // const sourcePerformance = await varIntToNumber(readableStream);
+    const sourcePerformance = await varIntToNumber(readableStream);
     const ret = { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
-    // moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
+    moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
     // ret.payloadLength = await varIntToNumber(readableStream);
     return ret;
   }

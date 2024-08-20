@@ -1,5 +1,4 @@
 import { writable } from 'svelte/store';
-import type { Writable } from 'svelte/store';
 
 export const moqVideoEncodeLatencyStore = writable<number>(0);
 export const moqVideoTransmissionLatencyStore = writable<number>(0);
@@ -19,6 +18,9 @@ export class moqVideoFrameOnEncode {
     moqVideoFrameOnEncode.store = performanceNow;
   }
   public static calcLatency(performanceNow: number) {
+    if (moqVideoFrameOnEncode.store === 0) {
+      return 0;
+    }
     return performanceNow - moqVideoFrameOnEncode.store;
   }
 }
@@ -32,6 +34,9 @@ export class moqVideoFrameOnDecode {
     moqVideoFrameOnDecode.store = performanceNow;
   }
   public static calcLatency(performanceNow: number) {
+    if (moqVideoFrameOnDecode.store === 0) {
+      return 0;
+    }
     return performanceNow - moqVideoFrameOnDecode.store;
   }
 }
