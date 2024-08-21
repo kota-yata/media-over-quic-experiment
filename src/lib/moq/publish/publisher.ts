@@ -7,6 +7,7 @@ import { moqVideoFrameOnEncode } from '../utils/store';
 export class Publisher {
   private videoEncoderConfig: VideoEncoderConfig = VIDEO_ENCODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
+  private trackNamespace = 'kota';
   private videoTrackName = 'kota-video';
   private audioTrackName = 'kota-audio';
   private videoReader: ReadableStreamDefaultReader;
@@ -22,6 +23,9 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number }) {
+    this.trackNamespace = props.namespace;
+    this.videoTrackName = props.videoTrackName;
+    this.audioTrackName = props.audioTrackName;
     this.moqt.trackManager.addTrack({
       namespace: props.namespace,
       name: props.videoTrackName,

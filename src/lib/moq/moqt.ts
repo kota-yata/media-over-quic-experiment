@@ -53,41 +53,46 @@ export class MOQT {
     writer.releaseLock();
   }
   // Start as a subscriber
-  public async startSubscriber() {
+  public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
     await this.wt.ready;
     await this.setup(MOQ_PARAMETER_ROLE.SUBSCRIBER);
     await this.readSetup();
-    // video
-    const ns = 'kota';
-    const trackNameVideo = 'kota-video';
-    await this.subscribe(0, ns, trackNameVideo, 'secret');
-    const subscribeResponse = await this.readSubscribeResponse();
-    if (!this.trackManager.getTrack(trackNameVideo)) {
-      this.trackManager.addTrack({
-        namespace: ns,
-        name: trackNameVideo,
-        subscribeIds: [subscribeResponse.subscribeId],
-        type: 'video',
-        priority: 1,
-      });
-    } else {
-      this.trackManager.addSubscribeId(trackNameVideo, subscribeResponse.subscribeId);
+
+    await this.subscribe(0, props.namespace, props.videoTrackName, props.secret);
+    const typeVideo = await varIntToNumber(this.controlReader);
+    if (typeVideo === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
+      const error = await this.readSubscribeError();
+      throw new Error(`SUBSCRIBE error: ${error.errorCode} ${error.reasonPhrase}`);
+    } else if (typeVideo !== MOQ_MESSAGE.SUBSCRIBE_OK) {
+      throw new Error(`Unhandlable SUBSCRIBE response type: ${typeVideo}`);
     }
-    // audio
-    // const trackNameAudio = 'kota-audio';
-    // await this.subscribe(0, ns, trackNameAudio, 'secret');
-    // const subscribeResponse = await this.readSubscribeResponse();
-    // if (!this.trackManager.getTrack(trackNameAudio)) {
-    //   this.trackManager.addTrack({
-    //     namespace: ns,
-    //     name: trackNameAudio,
-    //     subscribeIds: [subscribeResponse.subscribeId],
-    //     type: 'audio',
-    //     priority: 1,
-    //   })
-    // } else {
-    //   this.trackManager.addSubscribeId(trackNameAudio, subscribeResponse.subscribeId);
+    const subscribeResponseVideo = await this.readSubscribeResponse();
+    console.log(`Video track subscribed: ${subscribeResponseVideo.subscribeId}`);
+    this.trackManager.addTrack({
+      namespace: props.namespace,
+      name: props.videoTrackName,
+      subscribeIds: [subscribeResponseVideo.subscribeId],
+      type: 'video',
+      priority: 2,
+    });
+
+    // await this.subscribe(0, props.namespace, props.audioTrackName, props.secret);
+    // const typeAudio = await varIntToNumber(this.controlReader);
+    // if (typeAudio === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
+    //   const error = await this.readSubscribeError();
+    //   throw new Error(`SUBSCRIBE error: ${error.errorCode} ${error.reasonPhrase}`);
+    // } else if (typeAudio !== MOQ_MESSAGE.SUBSCRIBE_OK) {
+    //   throw new Error(`Unhandlable SUBSCRIBE response type: ${typeAudio}`);
     // }
+    // const subscribeResponseAudio = await this.readSubscribeResponse();
+    // console.log(`Audio track subscribed: ${subscribeResponseAudio.subscribeId}`);
+    // this.trackManager.addTrack({
+    //   namespace: props.namespace,
+    //   name: props.audioTrackName,
+    //   subscribeIds: [], // not going to be used from the subscriber side
+    //   type: 'audio',
+    //   priority: 1,
+    // });
   }
   public async stopSubscriber() {
     await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
@@ -211,18 +216,20 @@ export class MOQT {
   }
   public async readSubscribeResponse() {
     const ret = { subscribeId: -1, expires: -1, contentExists: -1 };
-    const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE.SUBSCRIBE_OK) {
-      throw new Error(`SUBSCRIBE answer type must be ${MOQ_MESSAGE.SUBSCRIBE_OK}, got ${type}`);
-    }
     ret.subscribeId = await varIntToNumber(this.controlReader);
     ret.expires = await varIntToNumber(this.controlReader);
     ret.contentExists = await varIntToNumber(this.controlReader);
     return ret;
   }
   private generateSubscribeUpdateMessage() {}
+  private async readSubscribeError() {
+    const subscribeId = await varIntToNumber(this.controlReader);
+    const errorCode = await varIntToNumber(this.controlReader);
+    const reasonPhrase = await this.readString();
+    const trackAlias = await varIntToNumber(this.controlReader);
+    return { subscribeId, errorCode, reasonPhrase, trackAlias };
+  }
   private readSubscribeDone() {}
-  private readSubscribeError() {}
   private generateUnsubscribeMessage(subscribeId: number) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.UNSUBSCRIBE);
     const subscribeIdBytes = numberToVarInt(subscribeId);
@@ -292,10 +299,8 @@ export class MOQT {
     const sendOrder = await varIntToNumber(readableStream);
     const objectStatus = await varIntToNumber(readableStream);
     const sourcePerformance = await varIntToNumber(readableStream);
-    const ret = { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
     moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
-    // ret.payloadLength = await varIntToNumber(readableStream);
-    return ret;
+    return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }
   // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status
   private async readString() {

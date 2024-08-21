@@ -23,10 +23,13 @@ export class Subscriber {
       output: (frame) => this.handleAudioFrame(frame),
       error: (e) => console.error(e.message)
     });
+    this.vDecoder.configure(this.videoDecoderConfig);
+    this.setWaitForKeyFrame(true);
+    this.aDecoder.configure(this.audioEncoderConfig);
   }
-  public async init() {
+  public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string }) {
     await this.moqt.initControlStream();
-    await this.moqt.startSubscriber();
+    await this.moqt.startSubscriber({ ...props, secret: 'secret' });
     this.startLoopObject();
   }
   public async stop() {

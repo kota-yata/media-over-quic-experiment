@@ -2,7 +2,11 @@
   import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
-  import { moqVideoEncodeLatencyStore, moqVideoTransmissionLatencyStore, moqVideoDecodeLatencyStore } from '$lib/moq/utils/store';
+  import {
+    moqVideoEncodeLatencyStore,
+    moqVideoTransmissionLatencyStore,
+    moqVideoDecodeLatencyStore
+  } from '$lib/moq/utils/store';
 
   let liveEl: HTMLVideoElement;
   let moqEl: HTMLCanvasElement;
@@ -12,11 +16,14 @@
   let publisher: Publisher;
   let stream: MediaStream;
 
-  let moqtServerUrl = 'https://localhost:4433/moq';
-  let moqtTrackNamespace = 'kota';
-  let moqtVideoTrackName = 'kota-video';
-  let moqtAudioTrackName = 'kota-audio';
+  let moqtServerUrl = 'https://srcm-moxygen.kota-yata.com:4433/moq';
+  let moqtPubTrackNamespace = 'kota';
+  let moqtPubVideoTrackName = 'kota-video';
+  let moqtPubAudioTrackName = 'kota-audio';
   let moqtKeyFrameDuration = 60;
+  let moqtSubTrackNamespace = 'kota';
+  let moqtSubVideoTrackName = 'kota-video';
+  let moqtSubAudioTrackName = 'kota-audio';
 
   const camera = {
     inputDevices: null as MediaDeviceInfo[],
@@ -41,7 +48,12 @@
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
     publisher = new Publisher(moqtServerUrl);
-    await publisher.init({ namespace: moqtTrackNamespace, videoTrackName: moqtVideoTrackName, audioTrackName: moqtAudioTrackName, keyFrameDuration: moqtKeyFrameDuration });
+    await publisher.init({
+      namespace: moqtPubTrackNamespace,
+      videoTrackName: moqtPubVideoTrackName,
+      audioTrackName: moqtPubAudioTrackName,
+      keyFrameDuration: moqtKeyFrameDuration
+    });
     await publisher.encode(stream);
     moqIsBroadcasting = true;
   };
@@ -55,7 +67,11 @@
     if (moqIsPlaying) return;
     // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
     subscriber = new Subscriber(moqtServerUrl);
-    await subscriber.init();
+    await subscriber.init({
+      namespace: moqtSubTrackNamespace,
+      videoTrackName: moqtSubVideoTrackName,
+      audioTrackName: moqtSubAudioTrackName
+    });
     subscriber.setCanvasElement(moqEl);
     moqIsPlaying = true;
   };
@@ -100,22 +116,22 @@
           </select>
         {/if}
       </div>
-      <div class="left-track">
+      <div class="left-track track">
         <div>
-          <label for="track-info-namespace">Track Namespace</label>
-          <input type="text" name="track-info-namespace" bind:value={moqtTrackNamespace} />
+          <label for="pub-track-namespace">Track Namespace</label>
+          <input type="text" name="pub-track-info-namespace" bind:value={moqtPubTrackNamespace} />
         </div>
         <div>
-          <label for="track-info-video">Video Track Name</label>
-          <input type="text" name="track-info-video" bind:value={moqtVideoTrackName} />
+          <label for="pub-track-video">Video Track Name</label>
+          <input type="text" name="pub-track-video" bind:value={moqtPubVideoTrackName} />
         </div>
         <div>
-          <label for="track-info-audio">Audio Track Name</label>
-          <input type="text" name="track-info-audio" bind:value={moqtAudioTrackName} />
+          <label for="pub-track-audio">Audio Track Name</label>
+          <input type="text" name="pub-track-audio" bind:value={moqtPubAudioTrackName} />
         </div>
         <div>
-          <label for="track-info-keyframe-duration">Key Frame Duration {moqtKeyFrameDuration}</label>
-          <input type="range" min="1" max="120" name="track-info-keyframe-duration" bind:value={moqtKeyFrameDuration} />
+          <label for="pub-track-keyframe-duration">Key Frame Duration {moqtKeyFrameDuration}</label>
+          <input type="range" min="1" max="120" name="pub-track-keyframe-duration" bind:value={moqtKeyFrameDuration} />
         </div>
       </div>
       <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
@@ -124,6 +140,20 @@
     <div class="right">
       <h3>Subscriber</h3>
       <canvas width="480" height="360" bind:this={moqEl} />
+      <div class="right-track track">
+        <div>
+          <label for="sub-track-namespace">Track Namespace</label>
+          <input type="text" name="sub-track-namespace" bind:value={moqtSubTrackNamespace} />
+        </div>
+        <div>
+          <label for="sub-track-video">Video Track Name</label>
+          <input type="text" name="sub-track-info-video" bind:value={moqtSubVideoTrackName} />
+        </div>
+        <div>
+          <label for="sub-track-audio">Audio Track Name</label>
+          <input type="text" name="sub-track-audio" bind:value={moqtSubAudioTrackName} />
+        </div>
+      </div>
       <button on:click={moqPlayStreamOnClick}>Subscribe</button>
       <button on:click={moqStopStreamOnClick}>Unsubscribe</button>
     </div>
@@ -183,10 +213,10 @@
             padding: 5px 10px;
           }
         }
-        &-track {
-          & > div {
-            margin: 5px;
-          }
+      }
+      .track {
+        & > div {
+          margin: 5px;
         }
       }
     }
