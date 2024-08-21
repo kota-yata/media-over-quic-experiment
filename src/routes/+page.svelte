@@ -2,17 +2,11 @@
   import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
-  import {
-    moqVideoEncodeLatencyStore,
-    moqVideoTransmissionLatencyStore,
-    moqVideoDecodeLatencyStore
-  } from '$lib/moq/utils/store';
+  import Performance from '$lib/components/Performance.svelte';
+  import MoQTSubscriber from '$lib/components/MoQTSubscriber.svelte';
 
   let liveEl: HTMLVideoElement;
-  let moqEl: HTMLCanvasElement;
-  let moqIsPlaying = false;
   let moqIsBroadcasting = false;
-  let subscriber: Subscriber;
   let publisher: Publisher;
   let stream: MediaStream;
 
@@ -21,9 +15,6 @@
   let moqtPubVideoTrackName = 'kota-video';
   let moqtPubAudioTrackName = 'kota-audio';
   let moqtKeyFrameDuration = 60;
-  let moqtSubTrackNamespace = 'kota';
-  let moqtSubVideoTrackName = 'kota-video';
-  let moqtSubAudioTrackName = 'kota-audio';
 
   const camera = {
     inputDevices: null as MediaDeviceInfo[],
@@ -63,23 +54,6 @@
     await publisher.stop();
     moqIsBroadcasting = false;
   };
-  const moqPlayStreamOnClick = async () => {
-    if (moqIsPlaying) return;
-    // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
-    subscriber = new Subscriber(moqtServerUrl);
-    await subscriber.init({
-      namespace: moqtSubTrackNamespace,
-      videoTrackName: moqtSubVideoTrackName,
-      audioTrackName: moqtSubAudioTrackName
-    });
-    subscriber.setCanvasElement(moqEl);
-    moqIsPlaying = true;
-  };
-  const moqStopStreamOnClick = async () => {
-    if (!moqIsPlaying) return;
-    await subscriber.stop();
-    moqIsPlaying = false;
-  };
 
   onMount(async () => {
     stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
@@ -93,12 +67,12 @@
 </script>
 
 <svelte:head>
-  <title>Media over QUIC Experiment</title>
+  <title>VIdeo Call over MoQT</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <div class="container">
-  <h1>Video Call with MoQT</h1>
+  <h1>Video Call over MoQT</h1>
   <div class="relay-server">
     <label for="relay-server-url">Relay Server</label>
     <input type="text" name="relay-server-url" bind:value={moqtServerUrl} />
@@ -138,35 +112,10 @@
       <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>
     </div>
     <div class="right">
-      <h3>Subscriber</h3>
-      <canvas width="480" height="360" bind:this={moqEl} />
-      <div class="right-track track">
-        <div>
-          <label for="sub-track-namespace">Track Namespace</label>
-          <input type="text" name="sub-track-namespace" bind:value={moqtSubTrackNamespace} />
-        </div>
-        <div>
-          <label for="sub-track-video">Video Track Name</label>
-          <input type="text" name="sub-track-info-video" bind:value={moqtSubVideoTrackName} />
-        </div>
-        <div>
-          <label for="sub-track-audio">Audio Track Name</label>
-          <input type="text" name="sub-track-audio" bind:value={moqtSubAudioTrackName} />
-        </div>
-      </div>
-      <button on:click={moqPlayStreamOnClick}>Subscribe</button>
-      <button on:click={moqStopStreamOnClick}>Unsubscribe</button>
+     <MoQTSubscriber {moqtServerUrl}  />
     </div>
   </div>
-  <div class="performance">
-    <h2>Performance Metrics</h2>
-    <div class="latency">
-      <h3>Latency</h3>
-      <p>Encode: {Math.floor($moqVideoEncodeLatencyStore)}ms</p>
-      <p>Transmission: {Math.floor($moqVideoTransmissionLatencyStore)}ms</p>
-      <p>Decode: {Math.floor($moqVideoDecodeLatencyStore)}ms</p>
-    </div>
-  </div>
+  <Performance />
 </div>
 
 <style lang="scss">
@@ -219,9 +168,6 @@
           margin: 5px;
         }
       }
-    }
-    canvas {
-      background-color: #333;
     }
   }
 </style>
