@@ -65,6 +65,6 @@
     margin: 5px;
   }
   canvas {
-      background-color: #333;
-    }
+    background-color: #333;
+  }
 </style>
