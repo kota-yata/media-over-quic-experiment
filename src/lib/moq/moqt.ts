@@ -43,8 +43,7 @@ export class MOQT {
       if (announcedNs.includes(trackData.namespace)) continue;
       announcedNs.push(trackData.namespace);
       await this.announce(trackData.namespace, 'secret');
-      const announceResponse = await this.readAnnounce();
-      console.log(`ANNOUNCE Response: ${announceResponse.namespace}`);
+      await this.readAnnounce();
     }
   }
   private async send(writerStream: WritableStream, dataBytes: Uint8Array) {
@@ -67,7 +66,6 @@ export class MOQT {
       throw new Error(`Unhandlable SUBSCRIBE response type: ${typeVideo}`);
     }
     const subscribeResponseVideo = await this.readSubscribeResponse();
-    console.log(`Video track subscribed: ${subscribeResponseVideo.subscribeId}`);
     this.trackManager.addTrack({
       namespace: props.namespace,
       name: props.videoTrackName,
@@ -123,7 +121,6 @@ export class MOQT {
       throw new Error(`SETUP answer with type ${type} is not supported`);
     }
     ret.version = await varIntToNumber(this.controlReader);
-    console.log(`Server version: ${ret.version}`);
     ret.parameters = await this.readParams();
     return ret;
   }

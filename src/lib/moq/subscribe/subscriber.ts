@@ -2,6 +2,7 @@ import { AUDIO_DECODER_DEFAULT_CONFIG, VIDEO_DECODER_DEFAULT_CONFIG } from '../c
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { deSerializeMetadata } from '../utils/bytes';
+import { Mogger } from '../utils/mogger';
 import { moqVideoDecodeLatencyStore, moqVideoFrameOnDecode } from '../utils/store';
 
 export class Subscriber {
@@ -13,15 +14,16 @@ export class Subscriber {
   private waitForKeyFrame = true;
   private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
+  private mogger = new Mogger('Subscriber');
   constructor(url: string) {
     this.moqt = new MOQT(url);
     this.vDecoder = new VideoDecoder({
       output: (frame) => this.handleVideoFrame(frame),
-      error: (e) => console.error(e.message)
+      error: (error: DOMException) => this.mogger.error(error.message)
     });
     this.aDecoder = new AudioDecoder({
       output: (frame) => this.handleAudioFrame(frame),
-      error: (e) => console.error(e.message)
+      error: (error: DOMException) => this.mogger.error(error.message)
     });
     this.vDecoder.configure(this.videoDecoderConfig);
     this.setWaitForKeyFrame(true);
