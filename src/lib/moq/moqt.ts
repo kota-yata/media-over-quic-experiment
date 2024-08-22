@@ -1,4 +1,3 @@
-import type { Track } from 'src/app';
 import { MOQ_DRAFT04_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import type { LOC } from './loc';
 import { TrackManager } from './track';

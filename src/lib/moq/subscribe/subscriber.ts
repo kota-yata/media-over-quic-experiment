@@ -1,5 +1,6 @@
 import { AUDIO_DECODER_DEFAULT_CONFIG, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
+import { MitterMuffer } from '../mitter-muffer';
 import { MOQT } from '../moqt';
 import { deSerializeMetadata } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
@@ -15,6 +16,8 @@ export class Subscriber {
   private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
   private mogger = new Mogger('Subscriber');
+  private videoJitterBuffer: MitterMuffer;
+  private audioJitterBuffer: MitterMuffer;
   constructor(url: string) {
     this.moqt = new MOQT(url);
     this.vDecoder = new VideoDecoder({
@@ -29,10 +32,12 @@ export class Subscriber {
     this.setWaitForKeyFrame(true);
     this.aDecoder.configure(this.audioEncoderConfig);
   }
-  public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string }) {
+  public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, authInfo: string, jitterBufferFrameSize: number }) {
     await this.moqt.initControlStream();
-    await this.moqt.startSubscriber({ ...props, secret: 'secret' });
+    await this.moqt.startSubscriber({ ...props, secret: props.authInfo });
     this.startLoopObject();
+    this.videoJitterBuffer = new MitterMuffer(props.jitterBufferFrameSize);
+    this.audioJitterBuffer = new MitterMuffer(props.jitterBufferFrameSize);
   }
   public async stop() {
     // unsubscribe but keep the control stream
@@ -61,12 +66,16 @@ export class Subscriber {
     try {
       await loc.fromBytes(readerStream);
     } catch (e) {
-      console.error(e);
+      this.mogger.error(e);
     }
-    const locObject = loc.toObject();
+    const currentLocObject = loc.toObject();
     if (loc.chunkType === 'delta' && this.waitForKeyFrame) return;
     this.setWaitForKeyFrame(false);
     if (trackType === 'video') {
+      this.videoJitterBuffer.addFrame(currentLocObject);
+      const jitterRet = this.videoJitterBuffer.getFrame();
+      if (!jitterRet.ok) return;
+      const locObject = jitterRet.frame;
       if (locObject.metadata) {
         const config: VideoDecoderConfig = locObject.metadata;
         this.mogger.info(`received config: ${JSON.stringify(config)}`);
@@ -84,6 +93,10 @@ export class Subscriber {
       this.vDecoder.decode(chunk);
     }
     if (trackType === 'audio') {
+      this.audioJitterBuffer.addFrame(currentLocObject);
+      const jitterRet = this.audioJitterBuffer.getFrame();
+      if (!jitterRet.ok) return;
+      const locObject = jitterRet.frame
       if (locObject.metadata) {
         const config: AudioDecoderConfig = locObject.metadata;
         config.optimizeForLatency = true;

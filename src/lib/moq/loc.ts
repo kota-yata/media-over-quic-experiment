@@ -3,7 +3,7 @@ import { buffRead, concatBuffer, deSerializeMetadata, numberToVarInt, readUntilE
 type LOCMediaTypeUnion = 'data' | 'video' | 'audio';
 type LOCChunkTypeUnion = EncodedVideoChunkType | EncodedAudioChunkType;
 
-interface LOCObject {
+export interface LOCObject {
   mediaType: LOCMediaTypeUnion;
   chunkType: LOCChunkTypeUnion;
   seqId: number;

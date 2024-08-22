@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { Publisher } from '$lib/moq/publish/publisher';
+  import { onMount } from 'svelte';
 
   let liveEl: HTMLVideoElement;
   let moqIsBroadcasting = false;
@@ -8,10 +8,11 @@
   let stream: MediaStream;
 
   export let moqtServerUrl;
-  let moqtPubTrackNamespace = 'kota';
-  let moqtPubVideoTrackName = 'kota-video';
-  let moqtPubAudioTrackName = 'kota-audio';
-  let moqtKeyFrameDuration = 60;
+  let namespace = 'kota';
+  let videoTrackName = 'kota-video';
+  let audioTrackName = 'kota-audio';
+  let keyFrameDuration = 60;
+  let authInfo = 'secret';
 
   const camera = {
     inputDevices: null as MediaDeviceInfo[],
@@ -36,12 +37,7 @@
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
     publisher = new Publisher(moqtServerUrl);
-    await publisher.init({
-      namespace: moqtPubTrackNamespace,
-      videoTrackName: moqtPubVideoTrackName,
-      audioTrackName: moqtPubAudioTrackName,
-      keyFrameDuration: moqtKeyFrameDuration
-    });
+    await publisher.init({ namespace, videoTrackName, audioTrackName, keyFrameDuration });
     await publisher.encode(stream);
     moqIsBroadcasting = true;
   };
@@ -78,20 +74,24 @@
   <div class="track">
     <div>
       <label for="pub-track-namespace">Track Namespace</label>
-      <input type="text" name="pub-track-info-namespace" bind:value={moqtPubTrackNamespace} />
+      <input type="text" name="pub-track-info-namespace" bind:value={namespace} />
     </div>
     <div>
       <label for="pub-track-video">Video Track Name</label>
-      <input type="text" name="pub-track-video" bind:value={moqtPubVideoTrackName} />
+      <input type="text" name="pub-track-video" bind:value={videoTrackName} />
     </div>
     <div>
       <label for="pub-track-audio">Audio Track Name</label>
-      <input type="text" name="pub-track-audio" bind:value={moqtPubAudioTrackName} />
+      <input type="text" name="pub-track-audio" bind:value={audioTrackName} />
     </div>
     <div>
-      <label for="pub-track-keyframe-duration">Key Frame Duration {moqtKeyFrameDuration}</label>
-      <input type="range" min="1" max="120" name="pub-track-keyframe-duration" bind:value={moqtKeyFrameDuration} />
+      <label for="pub-track-keyframe-duration">Key Frame Duration {keyFrameDuration}</label>
+      <input type="range" min="1" max="120" name="pub-track-keyframe-duration" bind:value={keyFrameDuration} />
     </div>
+    <div>
+      <label for="pub-track-auth">Authorization Info</label>
+      <input type="text" name="pub-track-auth" bind:value={authInfo} />
+    </div> 
   </div>
   <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
   <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>

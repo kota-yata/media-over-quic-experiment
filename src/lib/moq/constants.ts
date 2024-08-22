@@ -1,15 +1,33 @@
-export const VIDEO_ENCODER_DEFAULT_CONFIG: VideoEncoderConfig = {
-  codec: 'avc1.420028', // Baseline = 66, level 30 (see: https://en.wikipedia.org/wiki/Advanced_Video_Coding)
-  width: 1280,
-  height: 720,
-  bitrate: 1_000_000, // 1 Mbps
-  framerate: 30,
-  latencyMode: 'realtime', // Sends 1 chunk per frame
+export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
+  'high': {
+    codec: 'avc1.420028',
+    width: 1280,
+    height: 720,
+    bitrate: 2_000_000,
+    framerate: 60,
+    latencyMode: 'realtime',
+  },
+  'medium': {
+    codec: 'avc1.42001e',
+    width: 720,
+    height: 480,
+    bitrate: 1_000_000,
+    framerate: 60,
+    latencyMode: 'realtime',
+  },
+  'low': {
+    codec: 'avc1.42001e',
+    width: 480,
+    height: 360,
+    bitrate: 500_000,
+    framerate: 30,
+    latencyMode: 'realtime',
+  },
 };
 export const AUDIO_ENCODER_DEFAULT_CONFIG: AudioEncoderConfig = {
   codec: 'opus', // AAC NOT implemented YET (it is in their roadmap)
-  sampleRate: 48000, // To fill later
-  numberOfChannels: 1, // To fill later
+  sampleRate: 48000,
+  numberOfChannels: 1,
   bitrate: 32000,
   opus: { // See https://www.w3.org/TR/webcodecs-opus-codec-registration/
     frameDuration: 10000 // In ns. Lower latency than default = 20000
