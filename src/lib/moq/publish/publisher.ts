@@ -46,6 +46,7 @@ export class Publisher {
     await this.moqt.initControlStream();
     await this.moqt.startPublisher();
     this.state = 'running';
+    this.mogger.info('announced');
     this.startLoopSubscriptionsLoop();
   }
   public async stop() {
