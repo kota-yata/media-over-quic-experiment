@@ -2,20 +2,20 @@
   import Performance from '$lib/components/Performance.svelte';
   import MoQTSubscriber from '$lib/components/MoQTSubscriber.svelte';
   import MoQtPublisher from '$lib/components/MoQTPublisher.svelte';
+  import RelayServerUrl from '$lib/components/RelayServerUrl.svelte';
 
-  let moqtServerUrl = 'https://srcm-moxygen.kota-yata.com:4433/moq';
+  let moqtServerUrl = 'https://localhost:4433/moq';
 </script>
 
 <svelte:head>
-  <title>VIdeo Call over MoQT</title>
+  <title>Video Call over MoQT</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y-media-has-caption -->
 <div class="container">
   <h1>Video Call over MoQT</h1>
   <div class="relay-server">
-    <label for="relay-server-url">Relay Server</label>
-    <input type="text" name="relay-server-url" bind:value={moqtServerUrl} />
+    <RelayServerUrl bind:serverUrl={moqtServerUrl} />
   </div>
   <div class="container-videos">
     <div class="left">
@@ -36,15 +36,7 @@
     align-items: center;
     justify-content: center;
     .relay-server {
-      width: 100%;
       margin: 5px;
-      display: flex;
-      justify-content: center;
-      input {
-        margin-left: 5px;
-        width: 50%;
-        max-width: 300px;
-      }
     }
     &-videos {
       margin: 10px 0 0 0;
