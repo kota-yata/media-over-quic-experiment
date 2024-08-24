@@ -1,7 +1,7 @@
 import { MOQ_DRAFT04_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import type { LOC } from './loc';
 import { TrackManager } from './track';
-import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes } from './utils/bytes';
+import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes, toString } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
 
 interface SenderState {
@@ -45,9 +45,9 @@ export class MOQT {
       await this.readAnnounce();
     }
   }
-  private async send(writerStream: WritableStream, dataBytes: Uint8Array) {
-    const writer = writerStream.getWriter();
-    await writer.write(dataBytes);
+  private async send(props: { writerStream: WritableStream, dataBytes: Uint8Array }) {
+    const writer = props.writerStream.getWriter();
+    await writer.write(props.dataBytes);
     writer.releaseLock();
   }
   // Start as a subscriber
@@ -82,11 +82,10 @@ export class MOQT {
     //   throw new Error(`Unhandlable SUBSCRIBE response type: ${typeAudio}`);
     // }
     // const subscribeResponseAudio = await this.readSubscribeResponse();
-    // console.log(`Audio track subscribed: ${subscribeResponseAudio.subscribeId}`);
     // this.trackManager.addTrack({
     //   namespace: props.namespace,
     //   name: props.audioTrackName,
-    //   subscribeIds: [], // not going to be used from the subscriber side
+    //   subscribeIds: [subscribeResponseAudio.subscribeId],
     //   type: 'audio',
     //   priority: 1,
     // });
@@ -111,7 +110,7 @@ export class MOQT {
   }
   public async setup(role: number) {
     const setup = this.generateSetupMessage(role);
-    await this.send(this.controlWriter, setup);
+    await this.send({writerStream: this.controlWriter, dataBytes: setup});
   }
   public async readSetup() {
     const ret = { version: 0, parameters: null };
@@ -134,14 +133,14 @@ export class MOQT {
   }
   public async announce(ns: string, authInfo: string) {
     const announce = this.generateAnnounceMessage(ns, authInfo);
-    await this.send(this.controlWriter, announce);
+    await this.send({writerStream: this.controlWriter, dataBytes: announce});
   }
   public async readAnnounce() {
     const type = await varIntToNumber(this.controlReader);
     if (type !== MOQ_MESSAGE.ANNOUNCE_OK) {
       throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${type}`);
     }
-    const namespace = await this.readString();
+    const namespace = await toString(this.controlReader);
     return { namespace };
   }
   public generateUnannounceMessage(ns: string) {
@@ -151,7 +150,7 @@ export class MOQT {
   }
   public async unannounce() {
     const unannounce = this.generateUnannounceMessage('kota');
-    await this.send(this.controlWriter, unannounce);
+    await this.send({writerStream: this.controlWriter, dataBytes: unannounce});
   }
   // TODO: announce ok, announce error, announce cancel and unannounce
   // TODO: track status request, track status
@@ -176,14 +175,14 @@ export class MOQT {
   }
   public async subscribe(subscribeId: number, ns: string, trackName: string, authInfo: string) {
     const subscribe = this.generateSubscribeMessage(subscribeId, ns, trackName, authInfo);
-    await this.send(this.controlWriter, subscribe);
+    await this.send({ writerStream: this.controlWriter, dataBytes: subscribe });
   }
   public async readSubscribe() {
     const ret = { subscribeId: -1, trackAlias: -1, namespace: '', trackName: '', filterType: -1, startGroup: -1, startObject: -1, endGroup: -1, endObject: -1, parameters: null };
     ret.subscribeId = await varIntToNumber(this.controlReader);
     ret.trackAlias = await varIntToNumber(this.controlReader);
-    ret.namespace = await this.readString();
-    ret.trackName = await this.readString();
+    ret.namespace = await toString(this.controlReader);
+    ret.trackName = await toString(this.controlReader);
     ret.filterType = await varIntToNumber(this.controlReader);
     // ret.startGroup = await varIntToNumber(this.controlReader);
     // if (ret.startGroup !== MOQ_LOCATION_MODE_NONE) await varIntToNumber(this.controlReader);
@@ -208,7 +207,7 @@ export class MOQT {
   }
   public async sendSubscribeResponse(subscriptionId: number, expiresMs: number) {
     const subscribeResponse = this.generateSubscribeResponseMessage(subscriptionId, expiresMs);
-    await this.send(this.controlWriter, subscribeResponse);
+    await this.send({ writerStream: this.controlWriter, dataBytes: subscribeResponse });
   }
   public async readSubscribeResponse() {
     const ret = { subscribeId: -1, expires: -1, contentExists: -1 };
@@ -221,7 +220,7 @@ export class MOQT {
   private async readSubscribeError() {
     const subscribeId = await varIntToNumber(this.controlReader);
     const errorCode = await varIntToNumber(this.controlReader);
-    const reasonPhrase = await this.readString();
+    const reasonPhrase = await toString(this.controlReader);
     const trackAlias = await varIntToNumber(this.controlReader);
     return { subscribeId, errorCode, reasonPhrase, trackAlias };
   }
@@ -233,7 +232,7 @@ export class MOQT {
   }
   private async unsubscribe(subscribeId: number) {
     const unsubscribeMessage = this.generateUnsubscribeMessage(subscribeId);
-    await this.send(this.controlWriter, unsubscribeMessage);
+    await this.send({ writerStream: this.controlWriter, dataBytes: unsubscribeMessage });
   }
   public async readUnsubscribe() {
     const subscribeId = await varIntToNumber(this.controlReader);
@@ -276,7 +275,7 @@ export class MOQT {
       if (success.success) {
         const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
         moqVideoEncodeLatencyStore.set(latency);
-        await this.send(uniStream, moqtObject.toBytes());
+        await this.send({ writerStream: uniStream, dataBytes: moqtObject.toBytes() });
         uniStream.close().finally(() => {
           this.removeInflightRequest(moqtObject.getId());
         });
@@ -299,11 +298,6 @@ export class MOQT {
     return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }
   // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status
-  private async readString() {
-    const size = await varIntToNumber(this.controlReader);
-    const buffer = await buffRead(this.controlReader, size);
-    return new TextDecoder().decode(buffer);
-  }
   private async readParams() {
     const ret = { authInfo: '', role: -1 };
     const numParams = await varIntToNumber(this.controlReader);
@@ -313,7 +307,7 @@ export class MOQT {
     for (let i = 0; i < numParams; i++) {
       const paramId = await varIntToNumber(this.controlReader);
       if (paramId === MOQ_PARAMETER_AUTHORIZATION_INFO) {
-        ret.authInfo = await this.readString();
+        ret.authInfo = await toString(this.controlReader);
         break;
       } else if (paramId === MOQ_PARAMETER_ROLE) {
         await varIntToNumber(this.controlReader);

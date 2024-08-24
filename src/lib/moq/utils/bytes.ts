@@ -1,4 +1,9 @@
-// copied from https://github.com/facebookexperimental/moq-encoder-player
+/*
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+This source code is licensed under the MIT license found in the
+LICENSE file in the root directory of this source tree.
+*/
 
 const MAX_U6 = Math.pow(2, 6) - 1;
 const MAX_U14 = Math.pow(2, 14) - 1;
@@ -219,3 +224,9 @@ export const stringToBytes = (str: string) => {
   const dataStrLengthBytes = numberToVarInt(dataStrBytes.byteLength);
   return concatBuffer([dataStrLengthBytes, dataStrBytes]);
 };
+
+export const toString = async (receiveStream: ReadableStream) => {
+  const size = await varIntToNumber(receiveStream);
+  const buffer = await buffRead(receiveStream, size);
+  return new TextDecoder().decode(buffer);
+}

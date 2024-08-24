@@ -1,7 +1,7 @@
 import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
-import { serializeMetadata, varIntToNumber } from '../utils/bytes';
+import { serializeMetadata } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
