@@ -30,21 +30,10 @@ export class MOQT {
     this.controlWriter = this.controlStream.writable;
     this.controlReader = this.controlStream.readable;
   }
-  public getIncomingStream(): ReadableStream {
-    return this.wt.incomingUnidirectionalStreams;
-  }
-  // Start as a publisher
-  public async startPublisher() {
-    await this.setup(MOQ_PARAMETER_ROLE.PUBLISHER);
-    await this.readSetup();
-    const announcedNs = [];
-    for (const trackData of this.trackManager.getAllTracks()) {
-      if (announcedNs.includes(trackData.namespace)) continue;
-      announcedNs.push(trackData.namespace);
-      await this.announce(trackData.namespace, 'secret');
-      await this.readAnnounce();
-    }
-  }
+  
+  public getIncomingStream(): ReadableStream { return this.wt.incomingUnidirectionalStreams; }
+  public getControlWriter(): WritableStream { return this.controlWriter; }
+  public getControlReader(): ReadableStream { return this.controlReader; }
   private async send(props: { writerStream: WritableStream, dataBytes: Uint8Array }) {
     const writer = props.writerStream.getWriter();
     await writer.write(props.dataBytes);
@@ -52,11 +41,15 @@ export class MOQT {
   }
   // Start as a subscriber
   public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
-    await this.wt.ready;
-    await this.setup(MOQ_PARAMETER_ROLE.SUBSCRIBER);
+    await this.setup({ role: MOQ_PARAMETER_ROLE.SUBSCRIBER });
     await this.readSetup();
 
-    await this.subscribe(0, props.namespace, props.videoTrackName, props.secret);
+    await this.subscribe({
+      subscribeId: 0,
+      namespace: props.namespace,
+      trackName: props.videoTrackName,
+      authInfo: props.secret
+    });
     const typeVideo = await varIntToNumber(this.controlReader);
     if (typeVideo === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
       const error = await this.readSubscribeError();
@@ -72,23 +65,6 @@ export class MOQT {
       type: 'video',
       priority: 2,
     });
-
-    // await this.subscribe(0, props.namespace, props.audioTrackName, props.secret);
-    // const typeAudio = await varIntToNumber(this.controlReader);
-    // if (typeAudio === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
-    //   const error = await this.readSubscribeError();
-    //   throw new Error(`SUBSCRIBE error: ${error.errorCode} ${error.reasonPhrase}`);
-    // } else if (typeAudio !== MOQ_MESSAGE.SUBSCRIBE_OK) {
-    //   throw new Error(`Unhandlable SUBSCRIBE response type: ${typeAudio}`);
-    // }
-    // const subscribeResponseAudio = await this.readSubscribeResponse();
-    // this.trackManager.addTrack({
-    //   namespace: props.namespace,
-    //   name: props.audioTrackName,
-    //   subscribeIds: [subscribeResponseAudio.subscribeId],
-    //   type: 'audio',
-    //   priority: 1,
-    // });
   }
   public async stopSubscriber() {
     await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
@@ -98,18 +74,18 @@ export class MOQT {
     return await varIntToNumber(this.controlReader);
   }
   // SETUP
-  private generateSetupMessage(moqIntRole: number) {
+  private generateSetupMessage(props: { role: number }) {
     const messageType = numberToVarInt(MOQ_MESSAGE.CLIENT_SETUP);
     const versionLength = numberToVarInt(1);
     const version = numberToVarInt(MOQ_DRAFT04_VERSION);
     const numberOfParams = numberToVarInt(1);
     const roleParamId = numberToVarInt(MOQ_PARAMETER_ROLE.KEY);
-    const roleParamData = numberToVarInt(moqIntRole);
+    const roleParamData = numberToVarInt(props.role);
     const roleParamRoleLength = numberToVarInt(roleParamData.byteLength);
     return concatBuffer([messageType, versionLength, version, numberOfParams, roleParamId, roleParamRoleLength, roleParamData]);
   }
-  public async setup(role: number) {
-    const setup = this.generateSetupMessage(role);
+  public async setup(props: { role: number }) {
+    const setup = this.generateSetupMessage(props);
     await this.send({writerStream: this.controlWriter, dataBytes: setup});
   }
   public async readSetup() {
@@ -123,16 +99,16 @@ export class MOQT {
     return ret;
   }
   // ANNOUNCE
-  private generateAnnounceMessage(ns: string, authInfo: string) {
+  private generateAnnounceMessage(props: { namespace: string, authInfo: string }) {
     const messageType = numberToVarInt(MOQ_MESSAGE.ANNOUNCE);
-    const namespace = stringToBytes(ns);
+    const namespace = stringToBytes(props.namespace);
     const numberOfParams = numberToVarInt(1);
     const authInfoIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
-    const authInfoBytes = stringToBytes(authInfo);
+    const authInfoBytes = stringToBytes(props.authInfo);
     return concatBuffer([messageType, namespace, numberOfParams, authInfoIdBytes, authInfoBytes]);
   }
-  public async announce(ns: string, authInfo: string) {
-    const announce = this.generateAnnounceMessage(ns, authInfo);
+  public async announce(props: { namespace: string, authInfo: string }) {
+    const announce = this.generateAnnounceMessage(props);
     await this.send({writerStream: this.controlWriter, dataBytes: announce});
   }
   public async readAnnounce() {
@@ -155,12 +131,12 @@ export class MOQT {
   // TODO: announce ok, announce error, announce cancel and unannounce
   // TODO: track status request, track status
   // SUBSCRIBE
-  private generateSubscribeMessage(subscribeId: number, ns: string, trackName: string, authInfo: string) {
+  private generateSubscribeMessage(props: {subscribeId: number, namespace: string, trackName: string, authInfo: string}) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
-    const subscribeIdBytes = numberToVarInt(subscribeId);
-    const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
-    const namespaceBytes = stringToBytes(ns);
-    const trackNameBytes = stringToBytes(trackName);
+    const subscribeIdBytes = numberToVarInt(props.subscribeId);
+    const trackAliasBytes = numberToVarInt(props.subscribeId); // temporary value
+    const namespaceBytes = stringToBytes(props.namespace);
+    const trackNameBytes = stringToBytes(props.trackName);
     // const subscriberPriorityBytes = numberToVarInt(1); // temporary constant
     const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // temporary constant
     // const groupOrderBytes = numberToVarInt(SUBSCRIBE_GROUP_ORDER.ASCENDING); // temporary constant prob v5
@@ -170,11 +146,11 @@ export class MOQT {
     // const endObjectBytesValue
     const numberOfParamsBytes = numberToVarInt(1);
     const authInfoParamIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
-    const authInfoBytes = stringToBytes(authInfo);
+    const authInfoBytes = stringToBytes(props.authInfo);
     return concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, namespaceBytes, trackNameBytes, filterTypeBytes, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
   }
-  public async subscribe(subscribeId: number, ns: string, trackName: string, authInfo: string) {
-    const subscribe = this.generateSubscribeMessage(subscribeId, ns, trackName, authInfo);
+  public async subscribe(props: {subscribeId: number, namespace: string, trackName: string, authInfo: string }) {
+    const subscribe = this.generateSubscribeMessage(props);
     await this.send({ writerStream: this.controlWriter, dataBytes: subscribe });
   }
   public async readSubscribe() {
@@ -196,17 +172,17 @@ export class MOQT {
 
     return ret;
   }
-  private generateSubscribeResponseMessage(subscriptionId: number, expiresMs) {
+  private generateSubscribeResponseMessage(props: {subscribeId: number, expiresMs: number }) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE_OK);
-    const subscriptionIdBytes = numberToVarInt(subscriptionId);
-    const expiresBytes = numberToVarInt(expiresMs);
+    const subscriptionIdBytes = numberToVarInt(props.subscribeId);
+    const expiresBytes = numberToVarInt(props.expiresMs);
     const contentExistsBytes = numberToVarInt(1); // temporary constant
     const largestGroupIdBytes = numberToVarInt(0); // temporary constant
     const largestObjectIdBytes = numberToVarInt(0); // temporary constant
     return concatBuffer([messageTypeBytes, subscriptionIdBytes, expiresBytes, contentExistsBytes, largestGroupIdBytes, largestObjectIdBytes]);
   }
-  public async sendSubscribeResponse(subscriptionId: number, expiresMs: number) {
-    const subscribeResponse = this.generateSubscribeResponseMessage(subscriptionId, expiresMs);
+  public async sendSubscribeResponse(props: {subscribeId: number, expiresMs: number }) {
+    const subscribeResponse = this.generateSubscribeResponseMessage(props);
     await this.send({ writerStream: this.controlWriter, dataBytes: subscribeResponse });
   }
   public async readSubscribeResponse() {
@@ -239,38 +215,43 @@ export class MOQT {
     return { subscribeId };
   }
   // OBJECT
-  private generateObjectMessage(subscribeId, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array) {
+  private generateObjectMessage(props: {subscribeId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array}) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.OBJECT_STREAM);
-    const subscribeIdBytes = numberToVarInt(subscribeId);
-    const trackAliasBytes = numberToVarInt(subscribeId); // temporary value
-    const groupIdBytes = numberToVarInt(groupSeq);
-    const objectIdBytes = numberToVarInt(objectSeq);
-    const sendOrderBytes = numberToVarInt(sendOrder);
+    const subscribeIdBytes = numberToVarInt(props.subscribeId);
+    const trackAliasBytes = numberToVarInt(props.subscribeId); // temporary value
+    const groupIdBytes = numberToVarInt(props.groupSeq);
+    const objectIdBytes = numberToVarInt(props.objectSeq);
+    const sendOrderBytes = numberToVarInt(props.sendOrder);
     const objectStatusBytes = numberToVarInt(OBJECT_STATUS.NORMAL);
     const performanceBytes = numberToVarInt(performance.now());
     return {
-      getId: () => `${subscribeId}-${groupSeq}-${objectSeq}-${sendOrder}`,
-      toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, performanceBytes, data])
+      getId: () => `${props.subscribeId}-${props.groupSeq}-${props.objectSeq}`,
+      toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, performanceBytes, props.data])
     };
   }
-  public async sendObject(locPacket: LOC, trackName: string) {
-    const targetTrack = this.trackManager.getTrack(trackName);
-    if (!this.senderState[trackName]) {
-      this.senderState[trackName] = {
+  public async sendObject(props: { trackName: string, data: Uint8Array, newGroup: boolean }) {
+    const targetTrack = this.trackManager.getTrack(props.trackName);
+    if (!this.senderState[props.trackName]) {
+      this.senderState[props.trackName] = {
         currentGroupSeq: 0,
         currentObjectSeq: 0,
       };
     } else {
-      this.senderState[trackName].currentObjectSeq++;
+      this.senderState[props.trackName].currentObjectSeq++;
     }
-    if (locPacket.chunkType === 'key') {
-      this.senderState[trackName].currentGroupSeq++;
-      this.senderState[trackName].currentObjectSeq = 0;
+    if (props.newGroup) {
+      this.senderState[props.trackName].currentGroupSeq++;
+      this.senderState[props.trackName].currentObjectSeq = 0;
     }
-    const sendOrder = (this.senderState[trackName].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
+    const sendOrder = (this.senderState[props.trackName].currentObjectSeq + 1) * targetTrack.priority; // Really temporary
     const uniStream = await this.wt.createUnidirectionalStream({ sendOrder });
     for (const subscribeId of targetTrack.subscribeIds) {
-      const moqtObject = this.generateObjectMessage(subscribeId, this.senderState[trackName].currentGroupSeq, this.senderState[trackName].currentObjectSeq, sendOrder, locPacket.toBytes());
+      const moqtObject = this.generateObjectMessage({
+        subscribeId,
+        groupSeq: this.senderState[props.trackName].currentGroupSeq,
+        objectSeq: this.senderState[props.trackName].currentObjectSeq,
+        sendOrder,
+        data: props.data});
       const success = this.addInflightRequest(moqtObject.getId());
       if (success.success) {
         const latency = moqVideoFrameOnEncode.calcLatency(performance.now());
@@ -282,18 +263,18 @@ export class MOQT {
       }
     }
   }
-  public async readObject(readableStream: ReadableStream) {
-    const type = await varIntToNumber(readableStream);
+  public async readObject(props: { readableStream: ReadableStream }) {
+    const type = await varIntToNumber(props.readableStream);
     if (type !== MOQ_MESSAGE.OBJECT_STREAM && type !== MOQ_MESSAGE.OBJECT_DATAGRAM) {
       throw new Error(`OBJECT answer type must be ${MOQ_MESSAGE.OBJECT_STREAM} or ${MOQ_MESSAGE.OBJECT_DATAGRAM}, got ${type}`);
     }
-    const subscribeId = await varIntToNumber(readableStream);
-    const trackAlias = await varIntToNumber(readableStream);
-    const groupId = await varIntToNumber(readableStream);
-    const objId = await varIntToNumber(readableStream);
-    const sendOrder = await varIntToNumber(readableStream);
-    const objectStatus = await varIntToNumber(readableStream);
-    const sourcePerformance = await varIntToNumber(readableStream);
+    const subscribeId = await varIntToNumber(props.readableStream);
+    const trackAlias = await varIntToNumber(props.readableStream);
+    const groupId = await varIntToNumber(props.readableStream);
+    const objId = await varIntToNumber(props.readableStream);
+    const sendOrder = await varIntToNumber(props.readableStream);
+    const objectStatus = await varIntToNumber(props.readableStream);
+    const sourcePerformance = await varIntToNumber(props.readableStream);
     moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
     return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }

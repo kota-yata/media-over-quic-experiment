@@ -37,7 +37,7 @@
     if (moqIsBroadcasting) return;
     // publisher = new Publisher('https://44.237.11.243:4433/moq');
     publisher = new Publisher(moqtServerUrl);
-    await publisher.init({ namespace, videoTrackName, audioTrackName, keyFrameDuration });
+    await publisher.init({ namespace, videoTrackName, audioTrackName, keyFrameDuration, authInfo });
     await publisher.encode(stream);
     moqIsBroadcasting = true;
   };

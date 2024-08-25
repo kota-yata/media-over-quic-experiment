@@ -2,7 +2,6 @@ import { AUDIO_DECODER_DEFAULT_CONFIG, VIDEO_DECODER_DEFAULT_CONFIG } from '../c
 import { LOC } from '../loc';
 import { MitterMuffer } from '../mitter-muffer';
 import { MOQT } from '../moqt';
-import { deSerializeMetadata } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoDecodeLatencyStore, moqVideoFrameOnDecode } from '../utils/store';
 
@@ -60,7 +59,7 @@ export class Subscriber {
   }
   public async processObject(readerStream) {
     moqVideoFrameOnDecode.set(performance.now());
-    const object = await this.moqt.readObject(readerStream);
+    const object = await this.moqt.readObject({ readableStream: readerStream });
     const trackType = this.moqt.trackManager.getTrackBySubscribeId(object.subscribeId).type;
     const loc = new LOC();
     try {

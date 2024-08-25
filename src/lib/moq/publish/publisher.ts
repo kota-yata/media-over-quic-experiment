@@ -1,11 +1,11 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, VIDEO_ENCODER_CONFIGS } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
-export interface InitProps { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number };
+export interface InitProps { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number, authInfo: string };
 
 export class Publisher {
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
@@ -48,7 +48,17 @@ export class Publisher {
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: props.audioTrackName, subscribeIds: [], type: 'audio', priority: 1 });
     this.keyframeDuration = props.keyFrameDuration;
     await this.moqt.initControlStream();
-    await this.moqt.startPublisher();
+    // publisher setup
+    await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.PUBLISHER });
+    await this.moqt.readSetup();
+    const announcedNs = [];
+    // announce all the video and audio tracks
+    for (const trackData of this.moqt.trackManager.getAllTracks()) {
+      if (announcedNs.includes(trackData.namespace)) continue;
+      announcedNs.push(trackData.namespace);
+      await this.moqt.announce({ namespace: trackData.namespace, authInfo: props.authInfo });
+      await this.moqt.readAnnounce();
+    }
     this.state = 'running';
     this.mogger.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);
     this.startLoopSubscriptionsLoop();
@@ -118,7 +128,7 @@ export class Publisher {
     locPacket.setData('video', chunk.type, this.videoChunkCount, chunk.timestamp, chunkData, serializeMetadata(metadata));
     this.videoChunkCount++;
     try {
-      await this.moqt.sendObject(locPacket, trackName);
+      await this.moqt.sendObject({ trackName: trackName, data: locPacket.toBytes(), newGroup: locPacket.chunkType === 'key' });
     } catch (e) {
       this.mogger.error(e);
     }
@@ -128,7 +138,7 @@ export class Publisher {
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
     locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, serializeMetadata(metadata));
-    await this.moqt.sendObject(locPacket, this.audioTrackName);
+    await this.moqt.sendObject({ trackName: this.audioTrackName, data: locPacket.toBytes(), newGroup: locPacket.chunkType === 'key' });
   }
   public async startLoopSubscriptionsLoop() {
     while (this.state === 'running') {
@@ -137,7 +147,7 @@ export class Publisher {
         const subscribe = await this.moqt.readSubscribe();
         this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
         this.mogger.info(`Received subscription to track ${subscribe.trackName}`);
-        await this.moqt.sendSubscribeResponse(subscribe.subscribeId, 0);
+        await this.moqt.sendSubscribeResponse({ subscribeId: subscribe.subscribeId, expiresMs: 0 });
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
         this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
