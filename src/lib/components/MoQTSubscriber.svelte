@@ -5,6 +5,8 @@
   let subscriber: Subscriber;
 
   export let moqtServerUrl;
+  export let canvasWidth = 480;
+  export let canvasHeight = 360;
   let moqtSubTrackNamespace = 'kota';
   let moqtSubVideoTrackName = 'kota-video';
   let moqtSubAudioTrackName = 'kota-audio';
@@ -17,7 +19,7 @@
     videoQuality = event.target.value;
     if (moqIsPlaying) {
       await subscriber.stop();
-      subscriber = new Subscriber(moqtServerUrl);
+      subscriber = new Subscriber(moqtServerUrl, canvasWidth, canvasHeight);
       await subscriber.init({
         namespace: moqtSubTrackNamespace,
         videoTrackName: `${moqtSubVideoTrackName}-${videoQuality}`,
@@ -31,7 +33,7 @@
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
     // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
-    subscriber = new Subscriber(moqtServerUrl);
+    subscriber = new Subscriber(moqtServerUrl, canvasWidth, canvasHeight);
     await subscriber.init({
       namespace: moqtSubTrackNamespace,
       videoTrackName: `${moqtSubVideoTrackName}-${videoQuality}`,
@@ -51,7 +53,7 @@
 
 <div class="sub">
   <h3>Subscriber</h3>
-  <canvas width="480" height="360" bind:this={moqEl} />
+  <canvas width="{canvasWidth}" height="{canvasHeight}" bind:this={moqEl} />
   <div class="track">
     <div>
       <label for="sub-track-namespace">Track Namespace</label>

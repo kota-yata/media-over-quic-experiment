@@ -22,7 +22,7 @@
       <MoQtPublisher {moqtServerUrl} />
     </div>
     <div class="right">
-      <MoQTSubscriber {moqtServerUrl} />
+      <MoQTSubscriber {moqtServerUrl} canvasWidth={480} canvasHeight={360} />
     </div>
   </div>
   <Performance />

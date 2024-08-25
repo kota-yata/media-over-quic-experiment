@@ -17,7 +17,9 @@ export class Subscriber {
   private mogger = new Mogger('Subscriber');
   private videoJitterBuffer: MitterMuffer;
   private audioJitterBuffer: MitterMuffer;
-  constructor(url: string) {
+  private canvasWidth: number;
+  private canvasHeight: number;
+  constructor(url: string, canvasWidth: number, canvasHeight: number) {
     this.moqt = new MOQT(url);
     this.vDecoder = new VideoDecoder({
       output: (frame) => this.handleVideoFrame(frame),
@@ -30,6 +32,8 @@ export class Subscriber {
     this.vDecoder.configure(this.videoDecoderConfig);
     this.setWaitForKeyFrame(true);
     this.aDecoder.configure(this.audioEncoderConfig);
+    this.canvasWidth = canvasWidth;
+    this.canvasHeight = canvasHeight;
   }
   public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, authInfo: string, jitterBufferFrameSize: number }) {
     await this.moqt.initControlStream();
@@ -115,7 +119,8 @@ export class Subscriber {
     if (!this.ctx) return;
     const latency = moqVideoFrameOnDecode.calcLatency(performance.now());
     moqVideoDecodeLatencyStore.set(latency);
-    this.ctx.drawImage(frame, 0, 0, 480, 360);
+    this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+    this.ctx.drawImage(frame, 0, 0, this.canvasWidth, frame.displayHeight * this.canvasWidth / frame.displayWidth);
     frame.close();
   }
   private handleAudioFrame(frame: AudioFrame) {
