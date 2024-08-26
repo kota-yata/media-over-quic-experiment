@@ -4,7 +4,7 @@
   import MoQtPublisher from '$lib/components/MoQTPublisher.svelte';
   import RelayServerUrl from '$lib/components/RelayServerUrl.svelte';
 
-  let moqtServerUrl = 'https://localhost:4433/moq';
+  let moqtServerUrl = 'https://srcm-moxygen.kota-yata.com:4433/moq';
 </script>
 
 <svelte:head>
