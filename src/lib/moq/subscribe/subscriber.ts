@@ -120,7 +120,8 @@ export class Subscriber {
     const latency = moqVideoFrameOnDecode.calcLatency(performance.now());
     moqVideoDecodeLatencyStore.set(latency);
     this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-    this.ctx.drawImage(frame, 0, 0, 1920, 1080);
+    this.ctx.drawImage(frame, 0, 0, frame.codedWidth, frame.codedHeight);
+    console.log(frame.codedWidth, frame.codedHeight);
     frame.close();
   }
   private handleAudioFrame(frame: AudioFrame) {

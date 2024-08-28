@@ -103,7 +103,7 @@
     margin: 5px;
   }
   canvas {
-    background-color: #333;
+    background-color: #5a4747;
   }
   fieldset {
     margin: 10px 0;
