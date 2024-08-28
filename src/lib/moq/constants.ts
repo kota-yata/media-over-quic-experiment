@@ -6,6 +6,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
     bitrate: 2_000_000,
     framerate: 60,
     latencyMode: 'realtime',
+    hardwareAcceleration: 'prefer-hardware'
   },
   'medium': {
     codec: 'avc1.420028',
@@ -14,6 +15,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
     bitrate: 1_000_000,
     framerate: 60,
     latencyMode: 'realtime',
+    hardwareAcceleration: 'prefer-hardware'
   },
   'low': {
     codec: 'avc1.42001e',
@@ -22,6 +24,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
     bitrate: 500_000,
     framerate: 30,
     latencyMode: 'realtime',
+    hardwareAcceleration: 'prefer-hardware'
   },
 };
 export const AUDIO_ENCODER_DEFAULT_CONFIG: AudioEncoderConfig = {
@@ -39,7 +42,7 @@ export const VIDEO_DECODER_DEFAULT_CONFIG: VideoDecoderConfig = {
   codedWidth: 1920,
   codedHeight: 1080,
   colorSpace: { 'fullRange': false, 'matrix': 'smpte170m', 'primaries': 'bt709', 'transfer': 'bt709' },
-  hardwareAcceleration: 'prefer-software',
+  hardwareAcceleration: 'prefer-hardware',
   optimizeForLatency: true
 };
 export const AUDIO_DECODER_DEFAULT_CONFIG: AudioDecoderConfig = {
