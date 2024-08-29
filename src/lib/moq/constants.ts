@@ -10,7 +10,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
   },
   'medium': {
     codec: 'avc1.420028',
-    width: 960,
+    width: 1280,
     height: 720,
     bitrate: 1_000_000,
     framerate: 60,
@@ -19,8 +19,8 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
   },
   'low': {
     codec: 'avc1.42001e',
-    width: 480,
-    height: 360,
+    width: 720,
+    height: 404,
     bitrate: 500_000,
     framerate: 30,
     latencyMode: 'realtime',

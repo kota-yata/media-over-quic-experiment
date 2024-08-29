@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Subscriber } from '$lib/moq/subscribe/subscriber';
+  import Performance from './Performance.svelte';
   let moqEl: HTMLCanvasElement;
   let moqIsPlaying = false;
   let subscriber: Subscriber;
@@ -89,6 +90,7 @@
       <label for="sub-video-quality">High</label>
     </fieldset>
   </div>
+  <Performance />
 </div>
 
 <style>
@@ -103,7 +105,7 @@
     margin: 5px;
   }
   canvas {
-    background-color: #5a4747;
+    background-color: #333;
   }
   fieldset {
     margin: 10px 0;

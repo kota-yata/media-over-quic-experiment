@@ -223,7 +223,7 @@ export class MOQT {
     const objectIdBytes = numberToVarInt(props.objectSeq);
     const sendOrderBytes = numberToVarInt(props.sendOrder);
     const objectStatusBytes = numberToVarInt(OBJECT_STATUS.NORMAL);
-    const performanceBytes = numberToVarInt(performance.now());
+    const performanceBytes = numberToVarInt(Math.floor(performance.timeOrigin + performance.now()));
     return {
       getId: () => `${props.subscribeId}-${props.groupSeq}-${props.objectSeq}`,
       toBytes: () => concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, groupIdBytes, objectIdBytes, sendOrderBytes, objectStatusBytes, performanceBytes, props.data])
@@ -275,7 +275,7 @@ export class MOQT {
     const sendOrder = await varIntToNumber(props.readableStream);
     const objectStatus = await varIntToNumber(props.readableStream);
     const sourcePerformance = await varIntToNumber(props.readableStream);
-    moqVideoTransmissionLatencyStore.set(performance.now() - sourcePerformance);
+    moqVideoTransmissionLatencyStore.set(Math.floor(performance.timeOrigin + performance.now()) - sourcePerformance);
     return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }
   // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status

@@ -9,7 +9,7 @@
     <RelayServerUrl bind:serverUrl={moqtServerUrl} />
   </div>
   <div class="subscriber">
-    <MoQTSubscriber {moqtServerUrl} canvasWidth={1920} canvasHeight={1080} />
+    <MoQTSubscriber {moqtServerUrl} canvasWidth={720} canvasHeight={480} />
   </div>
 </div>
 
