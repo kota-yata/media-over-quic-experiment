@@ -21,7 +21,7 @@ export class MOQT {
   private inflightRequests: string[] = [];
   public trackManager: TrackManager;
   constructor(url: string) {
-    this.wt = new WebTransport(url);
+    this.wt = new WebTransport(url, { congestionControl: 'low-latency' });
     this.trackManager = new TrackManager();
   }
   public async initControlStream() {
