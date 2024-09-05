@@ -1,5 +1,4 @@
 import { MOQ_DRAFT04_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
-import type { LOC } from './loc';
 import { TrackManager } from './track';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes, toString } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
@@ -21,7 +20,7 @@ export class MOQT {
   private inflightRequests: string[] = [];
   public trackManager: TrackManager;
   constructor(url: string) {
-    this.wt = new WebTransport(url, { congestionControl: 'low-latency' });
+    this.wt = new WebTransport(url, { congestionControl: 'throughput' });
     this.trackManager = new TrackManager();
   }
   public async initControlStream() {
