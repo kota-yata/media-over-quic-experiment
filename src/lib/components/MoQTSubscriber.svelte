@@ -90,7 +90,6 @@
       <label for="sub-video-quality">High</label>
     </fieldset>
   </div>
-  <Performance />
 </div>
 
 <style>
