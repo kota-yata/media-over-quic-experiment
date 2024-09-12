@@ -1,6 +1,6 @@
 export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
   'high': {
-    codec: 'avc1.64002A',
+    codec: 'avc3.64002A',
     width: 3840,
     height: 2160,
     framerate: 30,
