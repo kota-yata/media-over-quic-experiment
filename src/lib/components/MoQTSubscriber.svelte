@@ -20,7 +20,7 @@
     videoQuality = event.target.value;
     if (moqIsPlaying) {
       await subscriber.stop();
-      subscriber = new Subscriber(moqtServerUrl, canvasWidth, canvasHeight);
+      subscriber = new Subscriber(moqtServerUrl);
       await subscriber.init({
         namespace: moqtSubTrackNamespace,
         videoTrackName: `${moqtSubVideoTrackName}-${videoQuality}`,
@@ -34,7 +34,7 @@
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
     // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
-    subscriber = new Subscriber(moqtServerUrl, canvasWidth, canvasHeight);
+    subscriber = new Subscriber(moqtServerUrl);
     await subscriber.init({
       namespace: moqtSubTrackNamespace,
       videoTrackName: `${moqtSubVideoTrackName}-${videoQuality}`,
@@ -50,11 +50,15 @@
     moqIsPlaying = false;
     await subscriber.stop();
   };
+  const canvasGoFullscreen = () => {
+    moqEl.requestFullscreen();
+  };
 </script>
 
 <div class="sub">
   <h3>Subscriber</h3>
   <canvas width="{canvasWidth}" height="{canvasHeight}" bind:this={moqEl} />
+  <button on:click={canvasGoFullscreen}>Go Fullscreen</button>
   <div class="track">
     <div>
       <label for="sub-track-namespace">Track Namespace</label>

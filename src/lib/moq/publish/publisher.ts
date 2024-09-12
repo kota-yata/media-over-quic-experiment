@@ -82,7 +82,7 @@ export class Publisher {
   }
   public async encode(mediaStream: MediaStream) {
     this.resetStream(mediaStream);
-    const names = ['low', 'medium', 'high'];
+    const names = ['low', 'medium', 'high', '4k'];
     for (const name of names) {
       const track = this[name];
       track.encoder = new VideoEncoder({

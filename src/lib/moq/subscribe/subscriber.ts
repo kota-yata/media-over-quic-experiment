@@ -17,9 +17,7 @@ export class Subscriber {
   private mogger = new Mogger('Subscriber');
   private videoJitterBuffer: MitterMuffer;
   private audioJitterBuffer: MitterMuffer;
-  private canvasWidth: number;
-  private canvasHeight: number;
-  constructor(url: string, canvasWidth: number, canvasHeight: number) {
+  constructor(url: string) {
     this.moqt = new MOQT(url);
     this.vDecoder = new VideoDecoder({
       output: (frame) => this.handleVideoFrame(frame),
@@ -32,8 +30,6 @@ export class Subscriber {
     this.vDecoder.configure(this.videoDecoderConfig);
     this.setWaitForKeyFrame(true);
     this.aDecoder.configure(this.audioEncoderConfig);
-    this.canvasWidth = canvasWidth;
-    this.canvasHeight = canvasHeight;
   }
   public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, authInfo: string, jitterBufferFrameSize: number }) {
     await this.moqt.initControlStream();
@@ -119,9 +115,12 @@ export class Subscriber {
     if (!this.ctx) return;
     const latency = moqVideoFrameOnDecode.calcLatency(performance.now());
     moqVideoDecodeLatencyStore.set(latency);
-    this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
-    this.ctx.drawImage(frame, 0, 0, this.canvasWidth, frame.codedHeight * this.canvasWidth / frame.codedWidth);
-    console.log(frame.codedWidth, frame.codedHeight);
+    // this.canvasElement.width = frame.codedWidth > 1920 ? 1920 : frame.codedWidth;
+    // this.canvasElement.height = frame.codedHeight * this.canvasElement.width / frame.codedWidth;
+    this.canvasElement.width = frame.codedWidth;
+    this.canvasElement.height = frame.codedHeight;
+    this.ctx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+    this.ctx.drawImage(frame, 0, 0, this.canvasElement.width, this.canvasElement.height);
     frame.close();
   }
   private handleAudioFrame(frame: AudioFrame) {
