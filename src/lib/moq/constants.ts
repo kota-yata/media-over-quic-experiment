@@ -8,7 +8,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
     hardwareAcceleration: 'no-preference'
   },
   'medium': {
-    codec: 'avc1.420028',
+    codec: 'avc1.64002A',
     width: 1920,
     height: 1080,
     bitrate: 2_000_000,
@@ -17,7 +17,7 @@ export const VIDEO_ENCODER_CONFIGS: { [key: string]: VideoEncoderConfig } = {
     hardwareAcceleration: 'no-preference'
   },
   'low': {
-    codec: 'avc1.42001e',
+    codec: 'avc1.64002A',
     width: 720,
     height: 404,
     bitrate: 500_000,
