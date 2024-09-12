@@ -49,7 +49,7 @@
   };
 
   onMount(async () => {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1920, height: 1080 }, audio: true }).catch(() => {
+    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }).catch(() => {
       throw new Error('Error accessing media devices:');
     });
     camera.inputDevices = (await navigator.mediaDevices.enumerateDevices()).filter(
