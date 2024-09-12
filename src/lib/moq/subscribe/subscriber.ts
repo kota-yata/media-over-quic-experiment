@@ -79,7 +79,6 @@ export class Subscriber {
         const config: VideoDecoderConfig = locObject.metadata;
         this.mogger.info(`received config: ${JSON.stringify(config)}`);
         config.optimizeForLatency = true;
-        config.hardwareAcceleration = 'prefer-software';
         this.vDecoder.configure(config);
       }
       const chunk = new EncodedVideoChunk({
