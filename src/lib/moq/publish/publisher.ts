@@ -32,7 +32,7 @@ export class Publisher {
   audioChunkCount: number;
   private moqt: MOQT;
   constructor(url: string) {
-    this.moqt = new MOQT(url);
+    this.moqt = new MOQT({ url });
     this.videoChunkCount = 0;
     this.audioChunkCount = 0;
   }

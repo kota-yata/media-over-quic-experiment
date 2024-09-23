@@ -19,9 +19,10 @@ export class MOQT {
   private senderState: SenderState = {};
   private inflightRequests: string[] = [];
   public trackManager: TrackManager;
-  constructor(url: string) {
-    this.wt = new WebTransport(url, { congestionControl: 'throughput' });
+  constructor(props: { url: string, maxInflightRequests?: number }) {
+    this.wt = new WebTransport(props.url, { congestionControl: 'throughput' }); // 'throughput' or 'low-latency' although only Firefox supports 'low-latency'
     this.trackManager = new TrackManager();
+    if (props.maxInflightRequests) this.MAX_INFLIGHT_REQUESTS = props.maxInflightRequests;
   }
   public async initControlStream() {
     await this.wt.ready;
@@ -31,42 +32,10 @@ export class MOQT {
   }
   
   public getIncomingStream(): ReadableStream { return this.wt.incomingUnidirectionalStreams; }
-  public getControlWriter(): WritableStream { return this.controlWriter; }
-  public getControlReader(): ReadableStream { return this.controlReader; }
   private async send(props: { writerStream: WritableStream, dataBytes: Uint8Array }) {
     const writer = props.writerStream.getWriter();
     await writer.write(props.dataBytes);
     writer.releaseLock();
-  }
-  // Start as a subscriber
-  public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
-    await this.setup({ role: MOQ_PARAMETER_ROLE.SUBSCRIBER });
-    await this.readSetup();
-
-    await this.subscribe({
-      subscribeId: 0,
-      namespace: props.namespace,
-      trackName: props.videoTrackName,
-      authInfo: props.secret
-    });
-    const typeVideo = await varIntToNumber(this.controlReader);
-    if (typeVideo === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
-      const error = await this.readSubscribeError();
-      throw new Error(`SUBSCRIBE error: ${error.errorCode} ${error.reasonPhrase}`);
-    } else if (typeVideo !== MOQ_MESSAGE.SUBSCRIBE_OK) {
-      throw new Error(`Unhandlable SUBSCRIBE response type: ${typeVideo}`);
-    }
-    const subscribeResponseVideo = await this.readSubscribeResponse();
-    this.trackManager.addTrack({
-      namespace: props.namespace,
-      name: props.videoTrackName,
-      subscribeIds: [subscribeResponseVideo.subscribeId],
-      type: 'video',
-      priority: 2,
-    });
-  }
-  public async stopSubscriber() {
-    await this.unsubscribe(0); // TODO: unsubscribe all. also manage subscribe ids
   }
   // read message type
   public async readControlMessageType(): Promise<number> {
@@ -192,24 +161,24 @@ export class MOQT {
     return ret;
   }
   private generateSubscribeUpdateMessage() {}
-  private async readSubscribeError() {
+  public async readSubscribeError() {
     const subscribeId = await varIntToNumber(this.controlReader);
     const errorCode = await varIntToNumber(this.controlReader);
     const reasonPhrase = await toString(this.controlReader);
     const trackAlias = await varIntToNumber(this.controlReader);
     return { subscribeId, errorCode, reasonPhrase, trackAlias };
   }
-  private readSubscribeDone() {}
+  public readSubscribeDone() {}
   private generateUnsubscribeMessage(subscribeId: number) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.UNSUBSCRIBE);
     const subscribeIdBytes = numberToVarInt(subscribeId);
     return concatBuffer([messageTypeBytes, subscribeIdBytes]);
   }
-  private async unsubscribe(subscribeId: number) {
+  public async unsubscribe(subscribeId: number) {
     const unsubscribeMessage = this.generateUnsubscribeMessage(subscribeId);
     await this.send({ writerStream: this.controlWriter, dataBytes: unsubscribeMessage });
   }
-  public async readUnsubscribe() {
+  public async readUnsubscribe () {
     const subscribeId = await varIntToNumber(this.controlReader);
     return { subscribeId };
   }
