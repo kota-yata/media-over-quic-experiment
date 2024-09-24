@@ -1,4 +1,6 @@
-import { buffRead, concatBuffer, deSerializeMetadata, numberToVarInt, readUntilEof, varIntToNumber } from './utils/bytes';
+import { moqtBytes } from 'moqtail';
+
+const { buffRead, concatBuffer, deSerializeMetadata, numberToVarInt, readUntilEof, varIntToNumber } = moqtBytes;
 
 type LOCMediaTypeUnion = 'data' | 'video' | 'audio';
 type LOCChunkTypeUnion = EncodedVideoChunkType | EncodedAudioChunkType;

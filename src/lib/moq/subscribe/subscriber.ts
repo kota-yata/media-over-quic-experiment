@@ -1,8 +1,7 @@
-import { AUDIO_DECODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
+import { AUDIO_DECODER_DEFAULT_CONFIG, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MitterMuffer } from '../mitter-muffer';
-import { MOQT } from '../moqt';
-import { Mogger } from '../utils/mogger';
+import { MOQT, MOQ_MESSAGE, MOQ_PARAMETER_ROLE } from 'moqtail';
 import { moqVideoDecodeLatencyStore, moqVideoFrameOnDecode } from '../utils/store';
 
 export class Subscriber {
@@ -14,18 +13,17 @@ export class Subscriber {
   private waitForKeyFrame = true;
   private videoDecoderConfig: VideoDecoderConfig = VIDEO_DECODER_DEFAULT_CONFIG;
   private audioEncoderConfig: AudioDecoderConfig = AUDIO_DECODER_DEFAULT_CONFIG;
-  private mogger = new Mogger('Subscriber');
   private videoJitterBuffer: MitterMuffer;
   private audioJitterBuffer: MitterMuffer;
   constructor(url: string) {
     this.moqt = new MOQT({ url });
     this.vDecoder = new VideoDecoder({
       output: (frame) => this.handleVideoFrame(frame),
-      error: (error: DOMException) => this.mogger.error(error.message)
+      error: (error: DOMException) => console.error(error.message)
     });
     this.aDecoder = new AudioDecoder({
       output: (frame) => this.handleAudioFrame(frame),
-      error: (error: DOMException) => this.mogger.error(error.message)
+      error: (error: DOMException) => console.error(error.message)
     });
     this.vDecoder.configure(this.videoDecoderConfig);
     this.setWaitForKeyFrame(true);
@@ -91,7 +89,7 @@ export class Subscriber {
     try {
       await loc.fromBytes(readerStream);
     } catch (e) {
-      this.mogger.error(e);
+      console.error(e);
     }
     const currentLocObject = loc.toObject();
     if (loc.chunkType === 'delta' && this.waitForKeyFrame) return;
@@ -103,7 +101,7 @@ export class Subscriber {
       const locObject = jitterRet.frame;
       if (locObject.metadata) {
         const config: VideoDecoderConfig = locObject.metadata;
-        this.mogger.info(`received config: ${JSON.stringify(config)}`);
+        console.info(`received config: ${JSON.stringify(config)}`);
         config.optimizeForLatency = true;
         this.vDecoder.configure(config);
       }
