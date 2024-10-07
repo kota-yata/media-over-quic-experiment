@@ -33,10 +33,9 @@
 	},
 	"type": "module",
 	"dependencies": {
-		"hls.js": "^1.5.8",
-		"moqtail": "^1.2.1"
+		"hls.js": "^1.5.8"
 	},
 	"engines": {
-		"node": "18"
-	}
+      "node": "18"
+    }
 }

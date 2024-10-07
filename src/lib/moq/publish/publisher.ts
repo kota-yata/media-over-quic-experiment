@@ -1,6 +1,8 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, VIDEO_ENCODER_CONFIGS } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
-import { MOQT, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, moqtBytes } from 'moqtail';
+import { MOQT } from '../moqt';
+import { serializeMetadata } from '../utils/bytes';
+import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
 
 export interface InitProps { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number, authInfo: string };
@@ -24,6 +26,7 @@ export class Publisher {
   private videoReader: ReadableStreamDefaultReader;
   private audioReader: ReadableStreamDefaultReader;
   private keyframeDuration = 60;
+  private mogger = new Mogger('Publisher');
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
   audioChunkCount: number;
@@ -57,13 +60,13 @@ export class Publisher {
       await this.moqt.readAnnounce();
     }
     this.state = 'running';
-    console.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);
+    this.mogger.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);
     this.startLoopSubscriptionsLoop();
   }
   public async stop() {
     await this.moqt.unannounce();
     this.state = 'stopped';
-    console.info('unannounced');
+    this.mogger.info('unannounced');
   }
   public async replaceTrack(mediaStream: MediaStream) {
     this.resetStream(mediaStream);
@@ -84,13 +87,13 @@ export class Publisher {
       const track = this[name];
       track.encoder = new VideoEncoder({
         output: (chunk, metadata) => this.handleEncodedVideoChunk(chunk, track.trackName, metadata),
-        error: (error: DOMException) => console.error(error)
+        error: (error: DOMException) => this.mogger.error(error.message)
       });
       track.encoder.configure(VIDEO_ENCODER_CONFIGS[name]);
     }
     const audioEncoder = new AudioEncoder({
       output: (chunk, metadata) => this.handleEncodedAudioChunk(chunk, metadata),
-      error: (error: DOMException) => console.error(error)
+      error: (error: DOMException) => this.mogger.error(error.message)
     });
     audioEncoder.configure(this.audioEncoderConfig);
 
@@ -122,19 +125,19 @@ export class Publisher {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
-    locPacket.setData('video', chunk.type, this.videoChunkCount, chunk.timestamp, chunkData, moqtBytes.serializeMetadata(metadata));
+    locPacket.setData('video', chunk.type, this.videoChunkCount, chunk.timestamp, chunkData, serializeMetadata(metadata));
     this.videoChunkCount++;
     try {
       await this.moqt.sendObject({ trackName: trackName, data: locPacket.toBytes(), newGroup: locPacket.chunkType === 'key' });
     } catch (e) {
-      console.error(e);
+      this.mogger.error(e);
     }
   }
   private async handleEncodedAudioChunk(chunk: EncodedAudioChunk, metadata) {
     const chunkData = new Uint8Array(chunk.byteLength);
     chunk.copyTo(chunkData);
     const locPacket = new LOC();
-    locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, moqtBytes.serializeMetadata(metadata));
+    locPacket.setData('audio', chunk.type, this.audioChunkCount++, chunk.timestamp, chunkData, serializeMetadata(metadata));
     await this.moqt.sendObject({ trackName: this.audioTrackName, data: locPacket.toBytes(), newGroup: locPacket.chunkType === 'key' });
   }
   public async startLoopSubscriptionsLoop() {
@@ -143,12 +146,12 @@ export class Publisher {
       if (messageType === MOQ_MESSAGE.SUBSCRIBE) {
         const subscribe = await this.moqt.readSubscribe();
         this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
-        console.info(`Received subscription to track ${subscribe.trackName}`);
+        this.mogger.info(`Received subscription to track ${subscribe.trackName}`);
         await this.moqt.sendSubscribeResponse({ subscribeId: subscribe.subscribeId, expiresMs: 0 });
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
         this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
-        console.info(`Received unsubscrition from id ${unsubscribe.subscribeId}`);
+        this.mogger.info(`Received unsubscrition from id ${unsubscribe.subscribeId}`);
       } else {
         throw new Error('Unexpected message type received');
       }
