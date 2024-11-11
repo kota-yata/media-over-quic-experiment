@@ -225,8 +225,8 @@ export const stringToBytes = (str: string) => {
   return concatBuffer([dataStrLengthBytes, dataStrBytes]);
 };
 
-export const toString = async (receiveStream: ReadableStream) => {
-  const size = await varIntToNumber(receiveStream);
+export const toString = async (receiveStream: ReadableStream, size?: any) => {
+  if (!size) size = await varIntToNumber(receiveStream);
   const buffer = await buffRead(receiveStream, size);
   return new TextDecoder().decode(buffer);
 }

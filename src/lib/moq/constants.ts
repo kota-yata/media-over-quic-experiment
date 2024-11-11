@@ -57,27 +57,13 @@ export const AUDIO_DECODER_DEFAULT_CONFIG: AudioDecoderConfig = {
 // MOQ Parameters
 export const MOQ_DRAFT07_VERSION = 0xff000007;
 
-export const MOQ_PARAMETER_ROLE = {
-  KEY: 0x00,
-  PUBLISHER: 0x01,
-  SUBSCRIBER: 0x02,
-  PUBSUB: 0x03,
-};
-export const MOQ_PARAMETER_PATH = { KEY: 0x01 };
-export const MOQ_PARAMETER_AUTHORIZATION_INFO = 0x2;
-
 export const MOQ_MAX_PARAMS = 256;
 export const MOQ_MAX_ARRAY_LENGTH = 1024;
-
-export const MOQ_LOCATION_MODE_NONE = 0x0;
-export const MOQ_LOCATION_MODE_ABSOLUTE = 0x1;
-export const MOQ_LOCATION_MODE_RELATIVE_PREVIOUS = 0x2;
-export const MOQ_LOCATION_MODE_RELATIVE_NEXT = 0x3;
 
 export const MOQ_MESSAGE = {
   OBJECT_STREAM: 0x0,
   OBJECT_DATAGRAM: 0x1,
-  SUBSCRIBE_UPDATE:  0x2, //dd
+  SUBSCRIBE_UPDATE: 0x2,
   SUBSCRIBE: 0x3,
   SUBSCRIBE_OK: 0x4,
   SUBSCRIBE_ERROR: 0x5,
@@ -102,8 +88,6 @@ export const MOQ_MESSAGE = {
   FETCH_ERROR: 0x19,
   CLIENT_SETUP: 0x40,
   SERVER_SETUP: 0x41,
-  STREAM_HEADER_TRACK: 0x50,
-  STREAM_HEADER_GROUP: 0x51,
 };
 
 export const MOQ_SESSION_CLOSE_ERROR = {
@@ -116,6 +100,24 @@ export const MOQ_SESSION_CLOSE_ERROR = {
   TOO_MANY_SUBSRIBES: 0x6,
   GOAWAY_TIMEOUT: 0x10,
 };
+
+// since Setup parameters use a separate namespace, it is impossible for these parameters to appear in Setup messages
+export const VERSION_SPECIFIC_PARAMETERS = {
+  AUTHORIZATION_INFO: { KEY: 0x02 },
+  DELIVERY_TIMEOUT: { KEY: 0x03 },
+  MAX_CACHE_DURATION: { KEY: 0x04 },
+}
+
+export const SETUP_PARAMETERS = {
+  ROLE : {
+    KEY: 0x00,
+    PUBLISHER: 0x01,
+    SUBSCRIBER: 0x02,
+    PUBSUB: 0x03,
+  },
+  PATH:  { KEY: 0x01 }, // not used as this is only for raw quic
+  MAX_SUBSCRIBE_ID: { KEY: 0x02 },
+}
 
 export const SUBSCRIBE_ERROR = {
   INTERNAL_ERROR: 0x0,

@@ -44,6 +44,7 @@ export class Subscriber {
 
     await this.moqt.subscribe({
       subscribeId: 0,
+      trackAlias: 0,
       namespace: props.namespace,
       trackName: props.videoTrackName,
       authInfo: props.secret

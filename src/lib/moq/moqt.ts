@@ -1,4 +1,4 @@
-import { MOQ_DRAFT07_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, MOQ_PARAMETER_AUTHORIZATION_INFO, MOQ_PARAMETER_ROLE, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
+import { MOQ_DRAFT07_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, VERSION_SPECIFIC_PARAMETERS, SETUP_PARAMETERS, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER } from './constants';
 import { TrackManager } from './track';
 import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes, toString } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
@@ -47,10 +47,10 @@ export class MOQT {
     const versionLength = numberToVarInt(1);
     const version = numberToVarInt(MOQ_DRAFT07_VERSION);
     const numberOfParams = numberToVarInt(1);
-    const roleParamId = numberToVarInt(MOQ_PARAMETER_ROLE.KEY);
-    const roleParamData = numberToVarInt(props.role);
-    const roleParamRoleLength = numberToVarInt(roleParamData.byteLength);
-    return concatBuffer([messageType, versionLength, version, numberOfParams, roleParamId, roleParamRoleLength, roleParamData]);
+    const roleParamType = numberToVarInt(SETUP_PARAMETERS.ROLE.KEY);
+    const roleParamValue = numberToVarInt(props.role);
+    const roleParamLength = numberToVarInt(roleParamValue.byteLength);
+    return concatBuffer([messageType, versionLength, version, numberOfParams, roleParamType, roleParamLength, roleParamValue]);
   }
   public async setup(props: { role: number }) {
     const setup = this.generateSetupMessage(props);
@@ -61,7 +61,7 @@ export class MOQT {
     const type = await varIntToNumber(this.controlReader);
     if (type !== MOQ_MESSAGE.SERVER_SETUP) {
       throw new Error(`SETUP answer with type ${type} is not supported`);
-    }
+    } // TODO: need to be removed as this is not supposed to be done in this function
     ret.version = await varIntToNumber(this.controlReader);
     ret.parameters = await this.readParams();
     return ret;
@@ -71,7 +71,7 @@ export class MOQT {
     const messageType = numberToVarInt(MOQ_MESSAGE.ANNOUNCE);
     const namespace = stringToBytes(props.namespace);
     const numberOfParams = numberToVarInt(1);
-    const authInfoIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
+    const authInfoIdBytes = numberToVarInt(VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY);
     const authInfoBytes = stringToBytes(props.authInfo);
     return concatBuffer([messageType, namespace, numberOfParams, authInfoIdBytes, authInfoBytes]);
   }
@@ -99,25 +99,25 @@ export class MOQT {
   // TODO: announce ok, announce error, announce cancel and unannounce
   // TODO: track status request, track status
   // SUBSCRIBE
-  private generateSubscribeMessage(props: {subscribeId: number, namespace: string, trackName: string, authInfo: string}) {
+  private generateSubscribeMessage(props: {subscribeId: number, trackAlias: number, namespace: string, trackName: string, authInfo: string}) {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
     const subscribeIdBytes = numberToVarInt(props.subscribeId);
-    const trackAliasBytes = numberToVarInt(props.subscribeId); // temporary value
+    const trackAliasBytes = numberToVarInt(props.trackAlias); // temporary value
     const namespaceBytes = stringToBytes(props.namespace);
     const trackNameBytes = stringToBytes(props.trackName);
     // const subscriberPriorityBytes = numberToVarInt(1); // temporary constant
-    const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // temporary constant
+    const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // streaming specific
     // const groupOrderBytes = numberToVarInt(SUBSCRIBE_GROUP_ORDER.ASCENDING); // temporary constant prob v5
     // const startGroupBytesValue = numberToVarInt(0);
     // const startObjectBytesValue = numberToVarInt(0);
     // const endGroupBytesValue
     // const endObjectBytesValue
     const numberOfParamsBytes = numberToVarInt(1);
-    const authInfoParamIdBytes = numberToVarInt(MOQ_PARAMETER_AUTHORIZATION_INFO);
+    const authInfoParamIdBytes = numberToVarInt(VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY);
     const authInfoBytes = stringToBytes(props.authInfo);
     return concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, namespaceBytes, trackNameBytes, filterTypeBytes, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
   }
-  public async subscribe(props: {subscribeId: number, namespace: string, trackName: string, authInfo: string }) {
+  public async subscribe(props: {subscribeId: number, trackAlias: number, namespace: string, trackName: string, authInfo: string }) {
     const subscribe = this.generateSubscribeMessage(props);
     await this.send({ writerStream: this.controlWriter, dataBytes: subscribe });
   }
@@ -128,14 +128,6 @@ export class MOQT {
     ret.namespace = await toString(this.controlReader);
     ret.trackName = await toString(this.controlReader);
     ret.filterType = await varIntToNumber(this.controlReader);
-    // ret.startGroup = await varIntToNumber(this.controlReader);
-    // if (ret.startGroup !== MOQ_LOCATION_MODE_NONE) await varIntToNumber(this.controlReader);
-    // ret.startObject = await varIntToNumber(this.controlReader);
-    // if (ret.startObject !== MOQ_LOCATION_MODE_NONE) await varIntToNumber(this.controlReader);
-    // ret.endGroup = await varIntToNumber(this.controlReader);
-    // if (ret.endGroup !== MOQ_LOCATION_MODE_NONE) await varIntToNumber(this.controlReader);
-    // ret.endObject = await varIntToNumber(this.controlReader);
-    // if (ret.endObject !== MOQ_LOCATION_MODE_NONE) await varIntToNumber(this.controlReader);
     ret.parameters = await this.readParams();
 
     return ret;
@@ -181,6 +173,11 @@ export class MOQT {
   public async readUnsubscribe () {
     const subscribeId = await varIntToNumber(this.controlReader);
     return { subscribeId };
+  }
+  public async readGoaway() {
+    const newSessionUriLength = await varIntToNumber(this.controlReader);
+    const newSessionUri = await toString(this.controlReader, newSessionUriLength); // might not work if i misundestand the meaning of (..) in the spec
+    return { newSessionUri };
   }
   // OBJECT
   private generateObjectMessage(props: {subscribeId: number, groupSeq: number, objectSeq: number, sendOrder: number, data: Uint8Array}) {
@@ -246,25 +243,47 @@ export class MOQT {
     moqVideoTransmissionLatencyStore.set(Math.floor(performance.timeOrigin + performance.now()) - sourcePerformance);
     return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }
-  // TODO: OBJECT DATAGRAM, Multi-Object Streams, track status request, track status
+  // Generic params reader
+  // reads not only the version-specific params but also setup params
   private async readParams() {
-    const ret = { authInfo: '', role: -1 };
+    const ret = {
+      authInfo: '', // appears in SUBSCRIBE, SUBSCRIBE_ANNOUNCES or ANNOUNCE
+      deliveryTimeout: -1, // appears in SUBSCRIBE, SUBSCRIBE_OK or SUBSCRIBE UPDATE
+      maxCacheDuration: -1, // appears in SUBSCRIBE??? (not explicitly mentioned in the spec)
+      role: -1, // appears in SETUP
+      path: '', // appears in SETUP
+      maxSubscribeId: -1, // appears in SETUP
+    };
     const numParams = await varIntToNumber(this.controlReader);
     if (numParams > MOQ_MAX_PARAMS) {
       throw new Error(`exceeded the max number of supported params ${MOQ_MAX_PARAMS}, got ${numParams}`);
     }
     for (let i = 0; i < numParams; i++) {
       const paramId = await varIntToNumber(this.controlReader);
-      if (paramId === MOQ_PARAMETER_AUTHORIZATION_INFO) {
-        ret.authInfo = await toString(this.controlReader);
-        break;
-      } else if (paramId === MOQ_PARAMETER_ROLE) {
-        await varIntToNumber(this.controlReader);
-        ret.role = await varIntToNumber(this.controlReader);
-      } else {
-        const paramLength = await varIntToNumber(this.controlReader);
-        const skip = await buffRead(this.controlReader, paramLength);
-        ret[`unknown-${i}-${paramId}-${paramLength}`] = JSON.stringify(skip);
+      switch (paramId) {
+        case VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY:
+          ret.authInfo = await toString(this.controlReader);
+          break;
+        case VERSION_SPECIFIC_PARAMETERS.DELIVERY_TIMEOUT.KEY:
+          ret.deliveryTimeout = await varIntToNumber(this.controlReader);
+          break;
+        case VERSION_SPECIFIC_PARAMETERS.MAX_CACHE_DURATION.KEY:
+          ret.maxCacheDuration = await varIntToNumber(this.controlReader);
+          break;
+        case SETUP_PARAMETERS.ROLE.KEY:
+          ret.role = await varIntToNumber(this.controlReader);
+          break;
+        case SETUP_PARAMETERS.PATH.KEY:
+          ret.path = await toString(this.controlReader);
+          break;
+        case SETUP_PARAMETERS.MAX_SUBSCRIBE_ID:
+          ret.maxSubscribeId = await varIntToNumber(this.controlReader);
+          break;
+        default:
+          const paramLength = await varIntToNumber(this.controlReader);
+          const skip = await buffRead(this.controlReader, paramLength);
+          ret[`unknown-${i}-${paramId}-${paramLength}`] = JSON.stringify(skip);
+          break;
       }
     }
     return ret;
