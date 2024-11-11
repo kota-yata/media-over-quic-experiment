@@ -40,6 +40,10 @@ export class Subscriber {
   }
   public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
     await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.SUBSCRIBER });
+    const type = await this.moqt.readControlMessageType();
+    if (type !== MOQ_MESSAGE.SERVER_SETUP) {
+      throw new Error(`SETUP answer with type ${type} is not supported`);
+    }
     await this.moqt.readSetup();
 
     await this.moqt.subscribe({

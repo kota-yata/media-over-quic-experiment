@@ -50,6 +50,10 @@ export class Publisher {
     await this.moqt.initControlStream();
     // publisher setup
     await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.PUBLISHER });
+    const setupType = await this.moqt.readControlMessageType();
+    if (setupType !== MOQ_MESSAGE.SERVER_SETUP) {
+      throw new Error(`SETUP answer with type ${setupType} is not supported`);
+    }
     await this.moqt.readSetup();
     const announcedNs = [];
     // announce all the video and audio tracks
@@ -57,7 +61,11 @@ export class Publisher {
       if (announcedNs.includes(trackData.namespace)) continue;
       announcedNs.push(trackData.namespace);
       await this.moqt.announce({ namespace: trackData.namespace, authInfo: props.authInfo });
-      await this.moqt.readAnnounce();
+      const announceResponseType = await this.moqt.readControlMessageType();
+      if (announceResponseType !== MOQ_MESSAGE.ANNOUNCE_OK) {
+        throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${announceResponseType}`);
+      } // TODO: add announce response handler so that it also handles announce error and announce cancel
+      await this.moqt.readAnnounceOk();
     }
     this.state = 'running';
     this.mogger.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);

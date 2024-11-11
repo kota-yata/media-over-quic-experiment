@@ -26,11 +26,11 @@
         videoTrackName: `${moqtSubVideoTrackName}-${videoQuality}`,
         audioTrackName: moqtSubAudioTrackName,
         authInfo: moqtSubAuth,
-        jitterBufferFrameSize: moqtSubJitterBufferFrameSize,
+        jitterBufferFrameSize: moqtSubJitterBufferFrameSize
       });
       subscriber.setCanvasElement(moqEl);
     }
-  }
+  };
   const moqPlayStreamOnClick = async () => {
     if (moqIsPlaying) return;
     // subscriber = new Subscriber('https://norsk-moq-linode-chicago.englishm.net:4443');
@@ -57,7 +57,7 @@
 
 <div class="sub">
   <h3>Subscriber</h3>
-  <canvas width="{canvasWidth}" height="{canvasHeight}" bind:this={moqEl} />
+  <canvas width={canvasWidth} height={canvasHeight} bind:this={moqEl} />
   <button on:click={canvasGoFullscreen}>Go Fullscreen</button>
   <div class="track">
     <div>
@@ -78,7 +78,14 @@
     </div>
     <div>
       <label for="pub-track-jitter">Jitter Buffer Frame Size {moqtSubJitterBufferFrameSize}</label>
-      <input type="range" min="0" max="60" step="10" name="pub-track-jitter" bind:value={moqtSubJitterBufferFrameSize} />
+      <input
+        type="range"
+        min="0"
+        max="60"
+        step="10"
+        name="pub-track-jitter"
+        bind:value={moqtSubJitterBufferFrameSize}
+      />
     </div>
   </div>
   <button on:click={moqPlayStreamOnClick}>Subscribe</button>
@@ -86,7 +93,7 @@
   <div>
     <fieldset>
       <legend>Video Quality</legend>
-      <input type="radio" name="sub-video-quality" on:change={qualityOnChange} value="low" checked/>
+      <input type="radio" name="sub-video-quality" on:change={qualityOnChange} value="low" checked />
       <label for="sub-video-quality">Low</label>
       <input type="radio" name="sub-video-quality" on:change={qualityOnChange} value="medium" />
       <label for="sub-video-quality">Medium</label>

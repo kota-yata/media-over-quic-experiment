@@ -58,10 +58,6 @@ export class MOQT {
   }
   public async readSetup() {
     const ret = { version: 0, parameters: null };
-    const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE.SERVER_SETUP) {
-      throw new Error(`SETUP answer with type ${type} is not supported`);
-    } // TODO: need to be removed as this is not supposed to be done in this function
     ret.version = await varIntToNumber(this.controlReader);
     ret.parameters = await this.readParams();
     return ret;
@@ -79,11 +75,7 @@ export class MOQT {
     const announce = this.generateAnnounceMessage(props);
     await this.send({writerStream: this.controlWriter, dataBytes: announce});
   }
-  public async readAnnounce() {
-    const type = await varIntToNumber(this.controlReader);
-    if (type !== MOQ_MESSAGE.ANNOUNCE_OK) {
-      throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${type}`);
-    }
+  public async readAnnounceOk() {
     const namespace = await toString(this.controlReader);
     return { namespace };
   }
@@ -96,7 +88,7 @@ export class MOQT {
     const unannounce = this.generateUnannounceMessage('kota');
     await this.send({writerStream: this.controlWriter, dataBytes: unannounce});
   }
-  // TODO: announce ok, announce error, announce cancel and unannounce
+  // TODO: announce error, announce cancel and unannounce
   // TODO: track status request, track status
   // SUBSCRIBE
   private generateSubscribeMessage(props: {subscribeId: number, trackAlias: number, namespace: string, trackName: string, authInfo: string}) {
