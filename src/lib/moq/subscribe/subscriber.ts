@@ -1,4 +1,4 @@
-import { AUDIO_DECODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
+import { AUDIO_DECODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MitterMuffer } from '../mitter-muffer';
 import { MOQT } from '../moqt';
@@ -39,7 +39,7 @@ export class Subscriber {
     this.audioJitterBuffer = new MitterMuffer(props.jitterBufferFrameSize);
   }
   public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
-    await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.SUBSCRIBER });
+    await this.moqt.setup({ role: SETUP_PARAMETERS.ROLE.SUBSCRIBER });
     const type = await this.moqt.readControlMessageType();
     if (type !== MOQ_MESSAGE.SERVER_SETUP) {
       throw new Error(`SETUP answer with type ${type} is not supported`);
@@ -51,6 +51,7 @@ export class Subscriber {
       trackAlias: 0,
       namespace: props.namespace,
       trackName: props.videoTrackName,
+      subscriberPriority: 0,
       authInfo: props.secret
     });
     const typeVideo = await this.moqt.readControlMessageType();

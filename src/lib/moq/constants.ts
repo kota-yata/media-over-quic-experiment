@@ -55,10 +55,11 @@ export const AUDIO_DECODER_DEFAULT_CONFIG: AudioDecoderConfig = {
 };
 
 // MOQ Parameters
-export const MOQ_DRAFT07_VERSION = 0xff000007;
+export const MOQ_DRAFT07_VERSION = 0xff070002;
 
 export const MOQ_MAX_PARAMS = 256;
 export const MOQ_MAX_ARRAY_LENGTH = 1024;
+export const MAX_SUBSCRIBE_ID = 128;
 
 export const MOQ_MESSAGE = {
   OBJECT_STREAM: 0x0,

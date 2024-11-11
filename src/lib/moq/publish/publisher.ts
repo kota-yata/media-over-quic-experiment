@@ -1,4 +1,4 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_ENCODER_CONFIGS } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata } from '../utils/bytes';
@@ -49,11 +49,13 @@ export class Publisher {
     this.keyframeDuration = props.keyFrameDuration;
     await this.moqt.initControlStream();
     // publisher setup
-    await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.PUBLISHER });
+    await this.moqt.setup({ role: SETUP_PARAMETERS.ROLE.PUBLISHER });
+    this.mogger.info('Sent SETUP message');
     const setupType = await this.moqt.readControlMessageType();
     if (setupType !== MOQ_MESSAGE.SERVER_SETUP) {
       throw new Error(`SETUP answer with type ${setupType} is not supported`);
     }
+    this.mogger.info('Received SETUP message');
     await this.moqt.readSetup();
     const announcedNs = [];
     // announce all the video and audio tracks

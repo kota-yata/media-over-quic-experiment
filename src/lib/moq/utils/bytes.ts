@@ -219,7 +219,7 @@ const base64ToArrayBuffer = (base64) => {
   return bytes.buffer;
 };
 
-export const stringToBytes = (str: string) => {
+export const stringToVarBytes = (str: string) => {
   const dataStrBytes = new TextEncoder().encode(str);
   const dataStrLengthBytes = numberToVarInt(dataStrBytes.byteLength);
   return concatBuffer([dataStrLengthBytes, dataStrBytes]);
