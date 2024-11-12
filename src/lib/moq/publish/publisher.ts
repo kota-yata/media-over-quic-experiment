@@ -1,7 +1,7 @@
 import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
-import { serializeMetadata } from '../utils/bytes';
+import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
 import type { InitProps }  from './publisher.d';
@@ -71,7 +71,7 @@ export class Publisher {
           this.mogger.error(`Announce error: ${announceError.errorCode} ${announceError.reasonPhrase}`);
           break;
         default:
-          throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${announceResponseType}`);
+          throw new Error(`ANNOUNCE answer type must be either ${MOQ_MESSAGE.ANNOUNCE_OK} or ${MOQ_MESSAGE.ANNOUNCE_ERROR}, got ${announceResponseType}`);
       }
     }
     this.state = 'running';
@@ -167,7 +167,7 @@ export class Publisher {
         this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
         this.mogger.info(`Received unsubscrition from id ${unsubscribe.subscribeId}`);
       } else {
-        throw new Error('Unexpected message type received');
+        throw new Error(`Unexpected message type received: ${messageType}`);
       }
     }
   }

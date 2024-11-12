@@ -39,7 +39,7 @@ export class MOQT {
     writer.releaseLock();
   }
   // read message type
-  public async readControlMessageType(): Promise<number> {
+  public async readControlMessageType(): Promise<number> {;
     return await varIntToNumber(this.controlReader);
   }
   // SETUP
@@ -66,7 +66,10 @@ export class MOQT {
     const ret = { version: 0, parameters: null };
     await varIntToNumber(this.controlReader); // message length which I don't really need
     ret.version = await varIntToNumber(this.controlReader);
-    ret.parameters = await this.readParams();
+    if (ret.version !== MOQ_DRAFT07_VERSION) {
+      throw new Error(`unsupported version ${ret.version}`);
+    }
+    ret.parameters = await this.readSetupParams();
     return ret;
   }
   // ANNOUNCE
@@ -255,26 +258,51 @@ export class MOQT {
     moqVideoTransmissionLatencyStore.set(Math.floor(performance.timeOrigin + performance.now()) - sourcePerformance);
     return { subscribeId, trackAlias, groupId, objId, sendOrder, objectStatus };
   }
-  // Generic params reader
-  // reads not only the version-specific params but also setup params
+  private async readSetupParams() {
+    const ret = {
+      role: -1,
+      path: '',
+      maxSubscribeId: -1,
+    }
+    const numParams = await varIntToNumber(this.controlReader);
+    if (numParams > MOQ_MAX_PARAMS) throw new Error(`exceeded the max number of supported params ${MOQ_MAX_PARAMS}, got ${numParams}`);
+    for (let i = 0; i < numParams; i++) {
+      const paramType = await varIntToNumber(this.controlReader);
+      const paramLength = await varIntToNumber(this.controlReader);
+      switch (paramType) {
+        case SETUP_PARAMETERS.ROLE.KEY:
+          ret.role = await varIntToNumber(this.controlReader);
+          break;
+        case SETUP_PARAMETERS.PATH.KEY:
+          ret.path = await toString(this.controlReader);
+          break;
+        case SETUP_PARAMETERS.MAX_SUBSCRIBE_ID.KEY:
+          ret.maxSubscribeId = await varIntToNumber(this.controlReader);
+          console.log('maxSubscribeId', ret.maxSubscribeId);
+          break;
+        default:
+          const skip = await varIntToNumber(this.controlReader);
+          ret[`unknown-${i}-${paramType}-${paramLength}`] = skip;
+          break;
+      }
+    }
+    return ret;
+  }
   private async readParams() {
     const ret = {
       authInfo: '', // appears in SUBSCRIBE, SUBSCRIBE_ANNOUNCES or ANNOUNCE
       deliveryTimeout: -1, // appears in SUBSCRIBE, SUBSCRIBE_OK or SUBSCRIBE UPDATE
       maxCacheDuration: -1, // appears in SUBSCRIBE??? (not explicitly mentioned in the spec)
-      role: -1, // appears in SETUP
-      path: '', // appears in SETUP
-      maxSubscribeId: -1, // appears in SETUP
     };
     const numParams = await varIntToNumber(this.controlReader);
-    if (numParams > MOQ_MAX_PARAMS) {
-      throw new Error(`exceeded the max number of supported params ${MOQ_MAX_PARAMS}, got ${numParams}`);
-    }
+    if (numParams > MOQ_MAX_PARAMS) throw new Error(`exceeded the max number of supported params ${MOQ_MAX_PARAMS}, got ${numParams}`);
     for (let i = 0; i < numParams; i++) {
-      const paramId = await varIntToNumber(this.controlReader);
-      switch (paramId) {
+      const paramType = await varIntToNumber(this.controlReader);
+      const paramLength = await varIntToNumber(this.controlReader);
+      console.log(paramType, paramLength);
+      switch (paramType) {
         case VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY:
-          ret.authInfo = await toString(this.controlReader);
+          ret.authInfo = await toString(this.controlReader, paramLength);
           break;
         case VERSION_SPECIFIC_PARAMETERS.DELIVERY_TIMEOUT.KEY:
           ret.deliveryTimeout = await varIntToNumber(this.controlReader);
@@ -282,19 +310,9 @@ export class MOQT {
         case VERSION_SPECIFIC_PARAMETERS.MAX_CACHE_DURATION.KEY:
           ret.maxCacheDuration = await varIntToNumber(this.controlReader);
           break;
-        case SETUP_PARAMETERS.ROLE.KEY:
-          ret.role = await varIntToNumber(this.controlReader);
-          break;
-        case SETUP_PARAMETERS.PATH.KEY:
-          ret.path = await toString(this.controlReader);
-          break;
-        case SETUP_PARAMETERS.MAX_SUBSCRIBE_ID:
-          ret.maxSubscribeId = await varIntToNumber(this.controlReader);
-          break;
         default:
-          const paramLength = await varIntToNumber(this.controlReader);
-          const skip = await buffRead(this.controlReader, paramLength);
-          ret[`unknown-${i}-${paramId}-${paramLength}`] = JSON.stringify(skip);
+          const skip = await varIntToNumber(this.controlReader);
+          ret[`unknown-${i}-${paramType}-${paramLength}`] = skip;
           break;
       }
     }
