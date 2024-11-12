@@ -219,13 +219,13 @@ const base64ToArrayBuffer = (base64) => {
   return bytes.buffer;
 };
 
-export const stringToVarBytes = (str: string) => {
+export const stringToBytes = (str: string) => {
   const dataStrBytes = new TextEncoder().encode(str);
   const dataStrLengthBytes = numberToVarInt(dataStrBytes.byteLength);
   return concatBuffer([dataStrLengthBytes, dataStrBytes]);
 };
 
-export const toString = async (receiveStream: ReadableStream, size?: any) => {
+export const BytesToString = async (receiveStream: ReadableStream, size?: any) => {
   if (!size) size = await varIntToNumber(receiveStream);
   const buffer = await buffRead(receiveStream, size);
   return new TextDecoder().decode(buffer);
@@ -235,7 +235,16 @@ export const arrayToVarTulple = (arr: any[]) => {
   const ret = [];
   ret.push(numberToVarInt(arr.length));
   for (let i = 0; i < arr.length; i++) {
-    ret.push(stringToVarBytes(arr[i]));
+    ret.push(stringToBytes(arr[i]));
   }
   return concatBuffer(ret);
+}
+
+export const varTupleToArray = async (receiveStream: ReadableStream) => {
+  const size = await varIntToNumber(receiveStream);
+  const ret = [];
+  for (let i = 0; i < size; i++) {
+    ret.push(await BytesToString(receiveStream));
+  }
+  return ret;
 }

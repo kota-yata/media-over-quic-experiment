@@ -1,6 +1,6 @@
 import { MOQ_DRAFT07_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, VERSION_SPECIFIC_PARAMETERS, SETUP_PARAMETERS, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER, MAX_SUBSCRIBE_ID } from './constants';
 import { TrackManager } from './track';
-import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToVarBytes, toString, arrayToVarTulple } from './utils/bytes';
+import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToBytes, BytesToString, arrayToVarTulple, varTupleToArray } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
 import type { AnnounceProps, SubscribeProps } from './moqt.d';
 
@@ -78,7 +78,7 @@ export class MOQT {
     const namespace = arrayToVarTulple(props.namespace);
     const numberOfParams = numberToVarInt(1);
     const authInfoIdBytes = numberToVarInt(VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY);
-    const authInfoBytes = stringToVarBytes(props.authInfo);
+    const authInfoBytes = stringToBytes(props.authInfo);
     const msg = [namespace, numberOfParams, authInfoIdBytes, authInfoBytes];
     const messageLength = numberToVarInt(concatBuffer(msg).byteLength);
     return concatBuffer([messageType, messageLength, ...msg]);
@@ -89,20 +89,20 @@ export class MOQT {
   }
   public async readAnnounceOk() {
     await varIntToNumber(this.controlReader); // message length
-    const namespace = await toString(this.controlReader);
+    const namespace = await varTupleToArray(this.controlReader);
     return { namespace };
   }
   public async readAnnounceError() {
     await varIntToNumber(this.controlReader); // message length
-    const namespace = await toString(this.controlReader);
+    const namespace = await BytesToString(this.controlReader);
     const errorCode = await varIntToNumber(this.controlReader);
     const reasonPhraseLength = await varIntToNumber(this.controlReader);
-    const reasonPhrase = await toString(this.controlReader, reasonPhraseLength);
+    const reasonPhrase = await BytesToString(this.controlReader, reasonPhraseLength);
     return { namespace, errorCode, reasonPhrase };
   }
   public generateUnannounceMessage(ns: string) {
     const messageType = numberToVarInt(MOQ_MESSAGE.UNANNOUNCE);
-    const namespace = stringToVarBytes(ns);
+    const namespace = stringToBytes(ns);
     return concatBuffer([messageType, namespace]);
   }
   public async unannounce() {
@@ -116,8 +116,8 @@ export class MOQT {
     const messageTypeBytes = numberToVarInt(MOQ_MESSAGE.SUBSCRIBE);
     const subscribeIdBytes = numberToVarInt(props.subscribeId);
     const trackAliasBytes = numberToVarInt(props.trackAlias); // temporary value
-    const namespaceBytes = stringToVarBytes(props.namespace);
-    const trackNameBytes = stringToVarBytes(props.trackName);
+    const namespaceBytes = stringToBytes(props.namespace);
+    const trackNameBytes = stringToBytes(props.trackName);
     const trackNameLengthBytes = numberToVarInt(trackNameBytes.byteLength);
     const subscriberPriorityBytes = numberToVarInt(props.subscriberPriority);
     const filterTypeBytes = numberToVarInt(SUBSCRIBE_FILTER.LATEST_OBEJCT); // streaming specific
@@ -128,7 +128,7 @@ export class MOQT {
     // const endObjectBytesValue
     const numberOfParamsBytes = numberToVarInt(1);
     const authInfoParamIdBytes = numberToVarInt(VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY);
-    const authInfoBytes = stringToVarBytes(props.authInfo);
+    const authInfoBytes = stringToBytes(props.authInfo);
     return concatBuffer([messageTypeBytes, subscribeIdBytes, trackAliasBytes, namespaceBytes, trackNameBytes, filterTypeBytes, numberOfParamsBytes, authInfoParamIdBytes, authInfoBytes]);
   }
   public async subscribe(props: SubscribeProps) {
@@ -138,8 +138,8 @@ export class MOQT {
   public async readSubscribe(): Promise<SubscribeProps> {
     const subscribeId = await varIntToNumber(this.controlReader);
     const trackAlias = await varIntToNumber(this.controlReader);
-    const namespace = await toString(this.controlReader);
-    const trackName = await toString(this.controlReader);
+    const namespace = await BytesToString(this.controlReader);
+    const trackName = await BytesToString(this.controlReader);
     const subscriberPriority = await varIntToNumber(this.controlReader);
     const filterType = await varIntToNumber(this.controlReader);
     const parameters = await this.readParams();
@@ -170,7 +170,7 @@ export class MOQT {
   public async readSubscribeError() {
     const subscribeId = await varIntToNumber(this.controlReader);
     const errorCode = await varIntToNumber(this.controlReader);
-    const reasonPhrase = await toString(this.controlReader);
+    const reasonPhrase = await BytesToString(this.controlReader);
     const trackAlias = await varIntToNumber(this.controlReader);
     return { subscribeId, errorCode, reasonPhrase, trackAlias };
   }
@@ -191,7 +191,7 @@ export class MOQT {
   public async readGoaway() {
     await varIntToNumber(this.controlReader); // message length
     const newSessionUriLength = await varIntToNumber(this.controlReader);
-    const newSessionUri = await toString(this.controlReader, newSessionUriLength); // might not work if i misundestand the meaning of (..) in the spec
+    const newSessionUri = await BytesToString(this.controlReader, newSessionUriLength); // might not work if i misundestand the meaning of (..) in the spec
     return { newSessionUri };
   }
   // OBJECT
@@ -274,7 +274,7 @@ export class MOQT {
           ret.role = await varIntToNumber(this.controlReader);
           break;
         case SETUP_PARAMETERS.PATH.KEY:
-          ret.path = await toString(this.controlReader);
+          ret.path = await BytesToString(this.controlReader);
           break;
         case SETUP_PARAMETERS.MAX_SUBSCRIBE_ID.KEY:
           ret.maxSubscribeId = await varIntToNumber(this.controlReader);
@@ -302,7 +302,7 @@ export class MOQT {
       console.log(paramType, paramLength);
       switch (paramType) {
         case VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY:
-          ret.authInfo = await toString(this.controlReader, paramLength);
+          ret.authInfo = await BytesToString(this.controlReader, paramLength);
           break;
         case VERSION_SPECIFIC_PARAMETERS.DELIVERY_TIMEOUT.KEY:
           ret.deliveryTimeout = await varIntToNumber(this.controlReader);
