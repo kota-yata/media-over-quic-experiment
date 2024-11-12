@@ -1,8 +1,8 @@
 import { MOQ_DRAFT07_VERSION, MOQ_MAX_PARAMS, MOQ_MESSAGE, VERSION_SPECIFIC_PARAMETERS, SETUP_PARAMETERS, OBJECT_STATUS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER, MAX_SUBSCRIBE_ID } from './constants';
 import { TrackManager } from './track';
-import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToVarBytes, toString } from './utils/bytes';
+import { numberToVarInt, concatBuffer, varIntToNumber, buffRead, stringToVarBytes, toString, arrayToVarTulple } from './utils/bytes';
 import { moqVideoEncodeLatencyStore, moqVideoFrameOnEncode, moqVideoTransmissionLatencyStore } from './utils/store';
-import type { SubscribeProps } from './moqt.d';
+import type { AnnounceProps, SubscribeProps } from './moqt.d';
 
 interface SenderState {
   [key: string]: {
@@ -47,7 +47,7 @@ export class MOQT {
     const messageType = numberToVarInt(MOQ_MESSAGE.CLIENT_SETUP);
     const versionLength = numberToVarInt(1);
     const version = numberToVarInt(MOQ_DRAFT07_VERSION);
-    const numberOfParams = numberToVarInt(1);
+    const numberOfParams = numberToVarInt(2);
     const roleParamType = numberToVarInt(SETUP_PARAMETERS.ROLE.KEY);
     const roleParamValue = numberToVarInt(props.role);
     const roleParamLength = numberToVarInt(roleParamValue.byteLength);
@@ -64,26 +64,38 @@ export class MOQT {
   }
   public async readSetup() {
     const ret = { version: 0, parameters: null };
+    await varIntToNumber(this.controlReader); // message length which I don't really need
     ret.version = await varIntToNumber(this.controlReader);
     ret.parameters = await this.readParams();
     return ret;
   }
   // ANNOUNCE
-  private generateAnnounceMessage(props: { namespace: string, authInfo: string }) {
+  private generateAnnounceMessage(props: AnnounceProps) {
     const messageType = numberToVarInt(MOQ_MESSAGE.ANNOUNCE);
-    const namespace = stringToVarBytes(props.namespace);
+    const namespace = arrayToVarTulple(props.namespace);
     const numberOfParams = numberToVarInt(1);
     const authInfoIdBytes = numberToVarInt(VERSION_SPECIFIC_PARAMETERS.AUTHORIZATION_INFO.KEY);
     const authInfoBytes = stringToVarBytes(props.authInfo);
-    return concatBuffer([messageType, namespace, numberOfParams, authInfoIdBytes, authInfoBytes]);
+    const msg = [namespace, numberOfParams, authInfoIdBytes, authInfoBytes];
+    const messageLength = numberToVarInt(concatBuffer(msg).byteLength);
+    return concatBuffer([messageType, messageLength, ...msg]);
   }
-  public async announce(props: { namespace: string, authInfo: string }) {
+  public async announce(props: AnnounceProps) {
     const announce = this.generateAnnounceMessage(props);
     await this.send({writerStream: this.controlWriter, dataBytes: announce});
   }
   public async readAnnounceOk() {
+    await varIntToNumber(this.controlReader); // message length
     const namespace = await toString(this.controlReader);
     return { namespace };
+  }
+  public async readAnnounceError() {
+    await varIntToNumber(this.controlReader); // message length
+    const namespace = await toString(this.controlReader);
+    const errorCode = await varIntToNumber(this.controlReader);
+    const reasonPhraseLength = await varIntToNumber(this.controlReader);
+    const reasonPhrase = await toString(this.controlReader, reasonPhraseLength);
+    return { namespace, errorCode, reasonPhrase };
   }
   public generateUnannounceMessage(ns: string) {
     const messageType = numberToVarInt(MOQ_MESSAGE.UNANNOUNCE);
@@ -174,8 +186,9 @@ export class MOQT {
     return { subscribeId };
   }
   public async readGoaway() {
+    await varIntToNumber(this.controlReader); // message length
     const newSessionUriLength = await varIntToNumber(this.controlReader);
-    const newSessionUri = await toString(this.controlReader); // might not work if i misundestand the meaning of (..) in the spec
+    const newSessionUri = await toString(this.controlReader, newSessionUriLength); // might not work if i misundestand the meaning of (..) in the spec
     return { newSessionUri };
   }
   // OBJECT

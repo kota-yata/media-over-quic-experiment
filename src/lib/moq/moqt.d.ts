@@ -8,4 +8,9 @@ export type SubscribeProps = {
   authInfo: string
 };
 
+export type AnnounceProps = {
+  namespace: string[],
+  authInfo: string 
+}
+
 

@@ -8,7 +8,7 @@
   let stream: MediaStream;
 
   export let moqtServerUrl;
-  let namespace = 'kota';
+  let namespace = ['kota'];
   let videoTrackName = 'kota-video';
   let audioTrackName = 'kota-audio';
   let keyFrameDuration = 60;

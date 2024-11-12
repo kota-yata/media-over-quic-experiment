@@ -230,3 +230,12 @@ export const toString = async (receiveStream: ReadableStream, size?: any) => {
   const buffer = await buffRead(receiveStream, size);
   return new TextDecoder().decode(buffer);
 }
+
+export const arrayToVarTulple = (arr: any[]) => {
+  const ret = [];
+  ret.push(numberToVarInt(arr.length));
+  for (let i = 0; i < arr.length; i++) {
+    ret.push(stringToVarBytes(arr[i]));
+  }
+  return concatBuffer(ret);
+}

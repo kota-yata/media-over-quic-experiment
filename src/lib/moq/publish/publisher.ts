@@ -4,12 +4,10 @@ import { MOQT } from '../moqt';
 import { serializeMetadata } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
-
-export interface InitProps { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number, authInfo: string };
+import type { InitProps }  from './publisher.d';
 
 export class Publisher {
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
-  private trackNamespace = 'kota';
   private low = {
     trackName: 'kota-video-low',
     encoder: {} as VideoEncoder
@@ -37,15 +35,14 @@ export class Publisher {
     this.audioChunkCount = 0;
   }
   public async init(props: InitProps) {
-    this.trackNamespace = props.namespace;
     this.low.trackName = `${props.videoTrackName}-low`;
     this.medium.trackName = `${props.videoTrackName}-medium`;
     this.high.trackName = `${props.videoTrackName}-high`;
-    this.audioTrackName = props.audioTrackName;
+    // this.audioTrackName = props.audioTrackName;
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.low.trackName, subscribeIds: [], type: 'video', priority: 4 });
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.medium.trackName,subscribeIds: [], type: 'video', priority: 3 });
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.high.trackName, subscribeIds: [], type: 'video', priority: 2 });
-    this.moqt.trackManager.addTrack({ namespace: props.namespace, name: props.audioTrackName, subscribeIds: [], type: 'audio', priority: 1 });
+    // this.moqt.trackManager.addTrack({ namespace: props.namespace, name: props.audioTrackName, subscribeIds: [], type: 'audio', priority: 1 });
     this.keyframeDuration = props.keyFrameDuration;
     await this.moqt.initControlStream();
     // publisher setup
@@ -64,13 +61,20 @@ export class Publisher {
       announcedNs.push(trackData.namespace);
       await this.moqt.announce({ namespace: trackData.namespace, authInfo: props.authInfo });
       const announceResponseType = await this.moqt.readControlMessageType();
-      if (announceResponseType !== MOQ_MESSAGE.ANNOUNCE_OK) {
-        throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${announceResponseType}`);
-      } // TODO: add announce response handler so that it also handles announce error and announce cancel
-      await this.moqt.readAnnounceOk();
+      switch (announceResponseType) {
+        case MOQ_MESSAGE.ANNOUNCE_OK:
+          const announceOk = await this.moqt.readAnnounceOk();
+          this.mogger.info(`Announced namespace ${announceOk.namespace}`);
+          break;
+        case MOQ_MESSAGE.ANNOUNCE_ERROR:
+          const announceError = await this.moqt.readAnnounceError();
+          this.mogger.error(`Announce error: ${announceError.errorCode} ${announceError.reasonPhrase}`);
+          break;
+        default:
+          throw new Error(`ANNOUNCE answer type must be ${MOQ_MESSAGE.ANNOUNCE_OK}, got ${announceResponseType}`);
+      }
     }
     this.state = 'running';
-    this.mogger.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);
     this.startLoopSubscriptionsLoop();
   }
   public async stop() {

@@ -1,4 +1,4 @@
-import type { Track } from 'src/app';
+import type { Track } from './track.d';
 
 export class TrackManager {
   private tracks: Track[] = [];
