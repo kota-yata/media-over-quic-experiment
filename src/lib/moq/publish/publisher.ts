@@ -1,15 +1,13 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, MOQ_PARAMETER_ROLE, VIDEO_ENCODER_CONFIGS } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, SUBSCRIBE_GROUP_ORDER, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
-import { serializeMetadata } from '../utils/bytes';
+import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
-
-export interface InitProps { namespace: string, videoTrackName: string, audioTrackName: string, keyFrameDuration: number, authInfo: string };
+import type { PublisherInitProps }  from './publisher.d';
 
 export class Publisher {
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
-  private trackNamespace = 'kota';
   private low = {
     trackName: 'kota-video-low',
     encoder: {} as VideoEncoder
@@ -26,6 +24,7 @@ export class Publisher {
   private videoReader: ReadableStreamDefaultReader;
   private audioReader: ReadableStreamDefaultReader;
   private keyframeDuration = 60;
+  private groupOrder = SUBSCRIBE_GROUP_ORDER.ASCENDING;
   private mogger = new Mogger('Publisher');
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
@@ -36,20 +35,25 @@ export class Publisher {
     this.videoChunkCount = 0;
     this.audioChunkCount = 0;
   }
-  public async init(props: InitProps) {
-    this.trackNamespace = props.namespace;
+  public async init(props: PublisherInitProps) {
     this.low.trackName = `${props.videoTrackName}-low`;
     this.medium.trackName = `${props.videoTrackName}-medium`;
     this.high.trackName = `${props.videoTrackName}-high`;
-    this.audioTrackName = props.audioTrackName;
+    // this.audioTrackName = props.audioTrackName;
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.low.trackName, subscribeIds: [], type: 'video', priority: 4 });
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.medium.trackName,subscribeIds: [], type: 'video', priority: 3 });
     this.moqt.trackManager.addTrack({ namespace: props.namespace, name: this.high.trackName, subscribeIds: [], type: 'video', priority: 2 });
-    this.moqt.trackManager.addTrack({ namespace: props.namespace, name: props.audioTrackName, subscribeIds: [], type: 'audio', priority: 1 });
+    // this.moqt.trackManager.addTrack({ namespace: props.namespace, name: props.audioTrackName, subscribeIds: [], type: 'audio', priority: 1 });
     this.keyframeDuration = props.keyFrameDuration;
     await this.moqt.initControlStream();
     // publisher setup
-    await this.moqt.setup({ role: MOQ_PARAMETER_ROLE.PUBLISHER });
+    await this.moqt.setup({ role: SETUP_PARAMETERS.ROLE.PUBLISHER });
+    this.mogger.info('Sent SETUP message');
+    const setupType = await this.moqt.readControlMessageType();
+    if (setupType !== MOQ_MESSAGE.SERVER_SETUP) {
+      throw new Error(`SETUP answer with type ${setupType} is not supported`);
+    }
+    this.mogger.info('Received SETUP message');
     await this.moqt.readSetup();
     const announcedNs = [];
     // announce all the video and audio tracks
@@ -57,10 +61,21 @@ export class Publisher {
       if (announcedNs.includes(trackData.namespace)) continue;
       announcedNs.push(trackData.namespace);
       await this.moqt.announce({ namespace: trackData.namespace, authInfo: props.authInfo });
-      await this.moqt.readAnnounce();
+      const announceResponseType = await this.moqt.readControlMessageType();
+      switch (announceResponseType) {
+        case MOQ_MESSAGE.ANNOUNCE_OK:
+          const announceOk = await this.moqt.readAnnounceOk();
+          this.mogger.info(`Announced namespace ${announceOk.namespace}`);
+          break;
+        case MOQ_MESSAGE.ANNOUNCE_ERROR:
+          const announceError = await this.moqt.readAnnounceError();
+          this.mogger.error(`Announce error: ${announceError.errorCode} ${announceError.reasonPhrase}`);
+          break;
+        default:
+          throw new Error(`ANNOUNCE answer type must be either ${MOQ_MESSAGE.ANNOUNCE_OK} or ${MOQ_MESSAGE.ANNOUNCE_ERROR}, got ${announceResponseType}`);
+      }
     }
     this.state = 'running';
-    this.mogger.info(`Announced tracks ${props.videoTrackName} (low, medium and high quality) and ${this.audioTrackName}`);
     this.startLoopSubscriptionsLoop();
   }
   public async stop() {
@@ -147,13 +162,13 @@ export class Publisher {
         const subscribe = await this.moqt.readSubscribe();
         this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
         this.mogger.info(`Received subscription to track ${subscribe.trackName}`);
-        await this.moqt.sendSubscribeResponse({ subscribeId: subscribe.subscribeId, expiresMs: 0 });
+        await this.moqt.sendSubscribeOk({ subscribeId: subscribe.subscribeId, expiresMs: 0, groupOrder: this.groupOrder });
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
         this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);
         this.mogger.info(`Received unsubscrition from id ${unsubscribe.subscribeId}`);
       } else {
-        throw new Error('Unexpected message type received');
+        throw new Error(`Unexpected message type received: ${messageType}`);
       }
     }
   }

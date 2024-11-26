@@ -8,7 +8,7 @@
   let stream: MediaStream;
 
   export let moqtServerUrl;
-  let namespace = 'kota';
+  let namespace = ['kota'];
   let videoTrackName = 'kota-video';
   let audioTrackName = 'kota-audio';
   let keyFrameDuration = 60;
@@ -91,7 +91,7 @@
     <div>
       <label for="pub-track-auth">Authorization Info</label>
       <input type="text" name="pub-track-auth" bind:value={authInfo} />
-    </div> 
+    </div>
   </div>
   <button on:click={async () => await moqBroadcastOnclick()}>Start publisher</button>
   <button on:click={async () => await moqStopBroadcastOnClick()}>Unannounce</button>

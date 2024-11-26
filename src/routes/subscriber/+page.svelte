@@ -1,9 +1,10 @@
 <script lang="ts">
-  import RelayServerUrl from "$lib/components/RelayServerUrl.svelte";
-  import MoQTSubscriber from "$lib/components/MoQTSubscriber.svelte";
-  import Performance from "$lib/components/Performance.svelte";
-  let moqtServerUrl = "https://srcm-moxygen.kota-yata.com:4433/moq";
+  import RelayServerUrl from '$lib/components/RelayServerUrl.svelte';
+  import MoQTSubscriber from '$lib/components/MoQTSubscriber.svelte';
+  import Performance from '$lib/components/Performance.svelte';
+  let moqtServerUrl = 'https://srcm-moxygen.kota-yata.com:4433/moq';
 </script>
+
 <div class="container">
   <h1>Subscriber-only Page</h1>
   <div class="relay-server">

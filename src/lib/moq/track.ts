@@ -1,4 +1,4 @@
-import type { Track } from 'src/app';
+import type { Track } from './track.d';
 
 export class TrackManager {
   private tracks: Track[] = [];
@@ -16,9 +16,7 @@ export class TrackManager {
   }
   public addSubscribeId(name: string, id: number) {
     this.tracks.map(track => {
-      if (track.name === name) {
-        track.subscribeIds.push(id);
-      }
+      if (track.name === name) track.subscribeIds.push(id);
     });
   }
   public removeSubscribeId(id: number) {

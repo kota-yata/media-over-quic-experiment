@@ -8,14 +8,3 @@ declare global {
     // interface Platform {}
   }
 }
-
-interface Track {
-  namespace: string,
-  name: string,
-  alias?: string,
-  subscribeIds: number[],
-  type: string,
-  priority: number,
-}
-
-export { Track };
