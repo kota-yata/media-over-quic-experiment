@@ -1,10 +1,15 @@
 export type SubscribeProps = {
   subscribeId: number,
   trackAlias: number,
-  namespace: string,
+  namespace: string[],
   trackName: string,
   subscriberPriority: number,
-  filterType?: number,
+  groupOrder: number,
+  filterType: number,
+  startGroup?: number,
+  startObject?: number,
+  endGroup?: number,
+  endObject?: number,
   authInfo: string
 };
 

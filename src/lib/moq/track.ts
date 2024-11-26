@@ -16,9 +16,7 @@ export class TrackManager {
   }
   public addSubscribeId(name: string, id: number) {
     this.tracks.map(track => {
-      if (track.name === name) {
-        track.subscribeIds.push(id);
-      }
+      if (track.name === name) track.subscribeIds.push(id);
     });
   }
   public removeSubscribeId(id: number) {

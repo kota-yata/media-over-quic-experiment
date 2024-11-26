@@ -1,10 +1,10 @@
-import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, VIDEO_ENCODER_CONFIGS } from '../constants';
+import { AUDIO_ENCODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, SUBSCRIBE_GROUP_ORDER, VIDEO_ENCODER_CONFIGS } from '../constants';
 import { LOC } from '../loc';
 import { MOQT } from '../moqt';
 import { serializeMetadata, varIntToNumber } from '../utils/bytes';
 import { Mogger } from '../utils/mogger';
 import { moqVideoFrameOnEncode } from '../utils/store';
-import type { InitProps }  from './publisher.d';
+import type { PublisherInitProps }  from './publisher.d';
 
 export class Publisher {
   private audioEncoderConfig: AudioEncoderConfig = AUDIO_ENCODER_DEFAULT_CONFIG;
@@ -24,6 +24,7 @@ export class Publisher {
   private videoReader: ReadableStreamDefaultReader;
   private audioReader: ReadableStreamDefaultReader;
   private keyframeDuration = 60;
+  private groupOrder = SUBSCRIBE_GROUP_ORDER.ASCENDING;
   private mogger = new Mogger('Publisher');
   state: 'created' | 'running' | 'stopped';
   videoChunkCount: number;
@@ -34,7 +35,7 @@ export class Publisher {
     this.videoChunkCount = 0;
     this.audioChunkCount = 0;
   }
-  public async init(props: InitProps) {
+  public async init(props: PublisherInitProps) {
     this.low.trackName = `${props.videoTrackName}-low`;
     this.medium.trackName = `${props.videoTrackName}-medium`;
     this.high.trackName = `${props.videoTrackName}-high`;
@@ -161,7 +162,7 @@ export class Publisher {
         const subscribe = await this.moqt.readSubscribe();
         this.moqt.trackManager.addSubscribeId(subscribe.trackName, subscribe.subscribeId);
         this.mogger.info(`Received subscription to track ${subscribe.trackName}`);
-        await this.moqt.sendSubscribeResponse({ subscribeId: subscribe.subscribeId, expiresMs: 0 });
+        await this.moqt.sendSubscribeOk({ subscribeId: subscribe.subscribeId, expiresMs: 0, groupOrder: this.groupOrder });
       } else if (messageType === MOQ_MESSAGE.UNSUBSCRIBE) {
         const unsubscribe = await this.moqt.readUnsubscribe();
         this.moqt.trackManager.removeSubscribeId(unsubscribe.subscribeId);

@@ -1,4 +1,4 @@
-export type InitProps = {
+export type PublisherInitProps = {
   namespace: string[],
   videoTrackName: string,
   audioTrackName: string,

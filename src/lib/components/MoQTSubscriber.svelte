@@ -8,7 +8,7 @@
   export let moqtServerUrl;
   export let canvasWidth = 480;
   export let canvasHeight = 360;
-  let moqtSubTrackNamespace = 'kota';
+  let moqtSubTrackNamespace = ['kota'];
   let moqtSubVideoTrackName = 'kota-video';
   let moqtSubAudioTrackName = 'kota-audio';
   let moqtSubAuth = 'secret';

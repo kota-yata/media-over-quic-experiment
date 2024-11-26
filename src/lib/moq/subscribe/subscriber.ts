@@ -1,9 +1,10 @@
-import { AUDIO_DECODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
+import { AUDIO_DECODER_DEFAULT_CONFIG, MOQ_MESSAGE, SETUP_PARAMETERS, SUBSCRIBE_FILTER, SUBSCRIBE_GROUP_ORDER, VIDEO_DECODER_DEFAULT_CONFIG } from '../constants';
 import { LOC } from '../loc';
 import { MitterMuffer } from '../mitter-muffer';
 import { MOQT } from '../moqt';
 import { Mogger } from '../utils/mogger';
 import { moqVideoDecodeLatencyStore, moqVideoFrameOnDecode } from '../utils/store';
+import type { SubscriberInitProps } from './subscriber.d';
 
 export class Subscriber {
   private moqt: MOQT;
@@ -31,14 +32,14 @@ export class Subscriber {
     this.setWaitForKeyFrame(true);
     this.aDecoder.configure(this.audioEncoderConfig);
   }
-  public async init(props: { namespace: string, videoTrackName: string, audioTrackName: string, authInfo: string, jitterBufferFrameSize: number }) {
+  public async init(props: SubscriberInitProps) {
     await this.moqt.initControlStream();
-    await this.startSubscriber({ ...props, secret: props.authInfo });
+    await this.startSubscriber(props);
     this.startLoopObject();
     this.videoJitterBuffer = new MitterMuffer(props.jitterBufferFrameSize);
     this.audioJitterBuffer = new MitterMuffer(props.jitterBufferFrameSize);
   }
-  public async startSubscriber(props: { namespace: string, videoTrackName: string, audioTrackName: string, secret: string }) {
+  public async startSubscriber(props: SubscriberInitProps) {
     await this.moqt.setup({ role: SETUP_PARAMETERS.ROLE.SUBSCRIBER });
     const type = await this.moqt.readControlMessageType();
     if (type !== MOQ_MESSAGE.SERVER_SETUP) {
@@ -52,7 +53,9 @@ export class Subscriber {
       namespace: props.namespace,
       trackName: props.videoTrackName,
       subscriberPriority: 0,
-      authInfo: props.secret
+      groupOrder: SUBSCRIBE_GROUP_ORDER.ASCENDING,
+      filterType: SUBSCRIBE_FILTER.LATEST_OBEJCT,
+      authInfo: props.authInfo
     });
     const typeVideo = await this.moqt.readControlMessageType();
     if (typeVideo === MOQ_MESSAGE.SUBSCRIBE_ERROR) {
@@ -61,7 +64,7 @@ export class Subscriber {
     } else if (typeVideo !== MOQ_MESSAGE.SUBSCRIBE_OK) {
       throw new Error(`Unhandlable SUBSCRIBE response type: ${typeVideo}`);
     }
-    const subscribeResponseVideo = await this.moqt.readSubscribeResponse();
+    const subscribeResponseVideo = await this.moqt.readSubscribeOk();
     this.moqt.trackManager.addTrack({
       namespace: props.namespace,
       name: props.videoTrackName,
@@ -154,7 +157,7 @@ export class Subscriber {
     this.ctx.drawImage(frame, 0, 0, this.canvasElement.width, this.canvasElement.height);
     frame.close();
   }
-  private handleAudioFrame(frame: AudioFrame) {
+  private handleAudioFrame(frame: AudioFrame) { 
     // set audioframe to audio element
     console.log(frame.sampleRate);
   }
